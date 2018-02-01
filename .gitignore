@@ -1,2 +1,3 @@
-./objectfiles/
-./output/
+objectfiles/*
+
+output/*
