@@ -15,21 +15,21 @@ class FS_base {
 	
 	std::shared_ptr<pure_RS_base> RS;
 
-	flow_solver_base (std::shared_ptr<pure_RS_base> RS)
+	FS_base (std::shared_ptr<pure_RS_base> RS)
 	:
 		RS	(RS)
 	{}
 
-	virtual void single_fluid_update 
+	virtual void pure_fluid_update 
 	(
 		const sim_info& params,
 		const double gamma,
 		const double pinf,
 		const double dt,
 		const BBrange& realcells,
-		const gridtype& grid,
-		gridtype& future_grid
-	) =0;
+		grideuler2type& grid,
+		grideuler2type& future_grid
+	) const =0;
 	
 };
 

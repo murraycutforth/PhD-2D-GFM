@@ -18,7 +18,7 @@ COMMON := -I ./../PhD-Common
 RS := -I ./../exact_riemann_solver_stiffenedgas
 
 # External .o files
-EXTOBJS = ../exact_riemann_solver_stiffenedgas/exact_RS_stiffenedgas.o
+EXTOBJS = ../exact_riemann_solver_stiffenedgas/exact_RS_stiffenedgas.o 
 
 # Folders
 BUILDDIR := objectfiles
@@ -36,7 +36,7 @@ EXTINCLIST := $(RS) $(EIGEN) $(HCLFRAMEWORK) $(COMMON) $(INCLIST)
 
 # Shared Compiler Flags
 OPLEVEL :=
-CFLAGS := -Wall -c -fopenmp -std=c++11 $(OPLEVEL)
+CFLAGS := -Wall -c -fopenmp -std=c++11 $(OPLEVEL) -g
 LINKFLAGS := -fopenmp $(OPLEVEL)
 
 # Linking Step

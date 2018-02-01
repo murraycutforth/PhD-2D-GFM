@@ -15,16 +15,16 @@ class FS_godunov : public FS_base {
 		FS_base	(RS)
 	{}
 
-	virtual void single_fluid_update 
+	virtual void pure_fluid_update 
 	(
 		const sim_info& params,
 		const double gamma,
 		const double pinf,
 		const double dt,
 		const BBrange& realcells,
-		const gridtype& grid,
-		gridtype& future_grid
-	);
+		grideuler2type& grid,
+		grideuler2type& future_grid
+	) const override;
 	
 };
 

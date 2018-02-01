@@ -1,0 +1,7 @@
+Nx 200
+Ny 200
+CFL 0.4
+sim_type onefluid
+method Godunov
+test_case circularexplosion
+outputpath ./output/

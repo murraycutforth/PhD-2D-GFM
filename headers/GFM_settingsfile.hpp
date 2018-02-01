@@ -47,7 +47,7 @@ class GFM_settingsfile {
 						
 		}
 			
-		basename = outputpath + "-" + sim_type + "-" + test_case + "-" + method + "-" + std::to_string(Nx) + "-" + std::to_string(Ny);
+		basename = outputpath + sim_type + "-" + test_case + "-" + method + "-" + std::to_string(Nx) + "-" + std::to_string(Ny);
 		infile.close();
 	}
 };
