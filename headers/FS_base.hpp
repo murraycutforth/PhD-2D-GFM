@@ -29,7 +29,7 @@ class FS_base {
 		const BBrange& realcells,
 		grideuler2type& grid,
 		grideuler2type& future_grid
-	) const =0;
+	) =0;
 	
 };
 

@@ -94,6 +94,44 @@ namespace misc {
 		
 		return conserved;
 	}
+	
+	
+	inline vec4type flux_x_conserved (double gamma, double pinf, const vec4type& U)
+	{
+		vec4type flux (4);
+		double rho = U(0);
+		double u = U(1) / rho;
+		double v = U(2) / rho;
+		double e = (U(3) / rho) - 0.5 * (u*u + v*v);
+		double p = eos::pressure(gamma, pinf, e, rho);
+		double E = U(3);
+		
+		flux(0) = rho * u;
+		flux(1) = rho * u * u + p;
+		flux(2) = rho * u * v;
+		flux(3) = u * (E + p);
+		
+		return flux;
+	}
+	
+	
+	inline vec4type flux_y_conserved (double gamma, double pinf, const vec4type& U)
+	{
+		vec4type flux (4);
+		double rho = U(0);
+		double u = U(1) / rho;
+		double v = U(2) / rho;
+		double e = (U(3) / rho) - 0.5 * (u*u + v*v);
+		double p = eos::pressure(gamma, pinf, e, rho);
+		double E = U(3);
+		
+		flux(0) = rho * v;
+		flux(1) = rho * u * v;
+		flux(2) = rho * v * v + p;
+		flux(3) = v * (E + p);
+		
+		return flux;
+	}
 
 }
 

@@ -11,7 +11,7 @@ void FS_godunov :: pure_fluid_update
 	const BBrange& realcells,
 	grideuler2type& grid,
 	grideuler2type& future_grid
-) const
+)
 {
 	const double dtodx = dt/params.dx;
 	const double dtody = dt/params.dy;

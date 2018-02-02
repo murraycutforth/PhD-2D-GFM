@@ -2,6 +2,7 @@
 #include "euler_misc.hpp"
 #include "BBrange.hpp"
 #include "FS_godunov.hpp"
+#include "FS_MUSCL.hpp"
 #include "pure_RS_exact.hpp"
 #include "euler_bc.hpp"
 #include <cassert>
@@ -155,7 +156,7 @@ void sim_onefluid :: set_sim_methods (const GFM_settingsfile& SF, std::shared_pt
 	}
 	else if (SF.method == "MUSCL")
 	{
-		//FS = std::make_shared<>();
+		FS = std::make_shared<FS_MUSCL>(RS);
 	}
 	else
 	{

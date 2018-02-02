@@ -24,7 +24,7 @@ class FS_godunov : public FS_base {
 		const BBrange& realcells,
 		grideuler2type& grid,
 		grideuler2type& future_grid
-	) const override;
+	) override;
 	
 };
 

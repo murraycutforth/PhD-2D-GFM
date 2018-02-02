@@ -1,7 +1,7 @@
-Nx 200
-Ny 200
+Nx 100
+Ny 100
 CFL 0.4
 sim_type onefluid
-method Godunov
-test_case circularexplosion
+method MUSCL
+test_case TTC2_x
 outputpath ./output/
