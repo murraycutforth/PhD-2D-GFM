@@ -155,6 +155,26 @@ void sim_twofluid :: output
 	outfile2.open(filename + "-" + std::to_string(numsteps) + "-ls.dat");
 	std::ofstream outfile3;
 	outfile3.open(filename + "-" + std::to_string(numsteps) + "-vfield.dat");
+	std::ofstream outfile4;
+	if (numsteps == 0) outfile4.open(filename + "-masschange.dat");
+	else outfile4.open(filename + "-masschange.dat", std::ofstream::app);
+
+	static double initialmass1;
+	static double initialmass2;
+	
+	if (numsteps == 0)
+	{
+		initialmass1 = fluid_mass(-1.0, params, grid1, ls);
+		initialmass2 = fluid_mass(1.0, params, grid2, ls);
+	}
+
+	double currentmass1 = fluid_mass(-1.0, params, grid1, ls);
+	double currentmass2 = fluid_mass(1.0, params, grid2, ls);
+	double masserror1 = (currentmass1 - initialmass1) / initialmass1;
+	double masserror2 = (currentmass2 - initialmass2) / initialmass2;
+
+	outfile4 << t << " " << masserror1 << " " << masserror2 << std::endl;
+ 
 	
 	for (int i=1; i<params.Ny + 2 * params.numGC - 1; i++)
 	{
@@ -230,6 +250,63 @@ void sim_twofluid :: set_sim_parameters
 		params.dx = 2.0/params.Nx;
 		params.dy = 2.0/params.Ny;
 		params.T = 0.25;
+	}
+	else if (SF.test_case == "ST1_x")
+	{
+		eosparams.gamma2 = 2.4;
+		params.T = 0.14;
+	}
+	else if (SF.test_case == "ST2_y")
+	{
+		eosparams.gamma1 = 4.4;
+		eosparams.pinf1 = 600000000.0;
+
+		params.x0 = -2.0;
+		params.y0 = -2.0;
+		params.dx = 4.0 / params.Nx;
+		params.dy = 4.0 / params.Ny;
+		params.T = 0.0009;
+	}
+	else if (SF.test_case == "shocked_helium_bubble")
+	{
+		eosparams.gamma2 = 1.667;
+
+		params.dx = 325.0 / params.Nx;
+		params.dy = 89.0 / params.Ny;
+		params.T = 280.0;
+		params.BC_T = "reflective";
+		params.BC_B = "reflective";
+	}
+	else if (SF.test_case == "shocked_SF6")
+	{
+		eosparams.gamma2 = 1.076;
+
+		params.dx = 0.45 / params.Nx;
+		params.dy = 0.2 / params.Ny;
+		params.T = 0.25;
+		params.BC_T = "reflective";
+		params.BC_R = "reflective";
+		params.BC_B = "reflective";
+	}
+	else if (SF.test_case == "underwater_shocked_bubble")
+	{
+		eosparams.gamma1 = 7.15;
+		eosparams.pinf1 = 3309.0;
+
+		params.dx = 12.0 / params.Nx;
+		params.dy = 12.0 / params.Ny;
+		params.T = 0.05;
+	}
+	else if (SF.test_case == "underwater_explosion")
+	{
+		eosparams.gamma2 = 7.15;
+		eosparams.pinf2 = 3.309e8;
+
+		params.x0 = -5.0;
+		params.y0 = -5.0;
+		params.dx = 10.0 / params.Nx;
+		params.dy = 10.0 / params.Ny;
+		params.T = 0.005;
 	}
 	else
 	{
@@ -360,6 +437,70 @@ void sim_twofluid :: set_sim_ICs
 			}
 		}
 	}
+	else if (SF.test_case == "ST1_x")
+	{
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		Lprims(0) = 1.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.0;
+		
+		Rprims(0) = 0.125;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 0.1;
+		
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
+
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				double lsval = CC(0) - 0.5;
+
+				ls.set_sdf(i, j, lsval);
+
+				grid1[i][j] = Lstate;
+				grid2[i][j] = Rstate;
+			}
+		}
+	}
+	else if (SF.test_case == "ST2_y")
+	{
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		Lprims(0) = 1000.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1000000000.0;
+		
+		Rprims(0) = 50.0;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 100000.0;
+		
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
+
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				double lsval = CC(1) - 0.7;
+
+				ls.set_sdf(i, j, lsval);
+
+				grid1[i][j] = Lstate;
+				grid2[i][j] = Rstate;
+			}
+		}
+	}
 	else
 	{
 		assert(!"Invalid test_case choice.");
@@ -368,4 +509,33 @@ void sim_twofluid :: set_sim_ICs
 	apply_BCs_euler (params, grid1);
 	apply_BCs_euler (params, grid2);
 }
+
+
+
+double sim_twofluid :: fluid_mass
+(
+	const double interiorsign,
+	const sim_info& params,
+	const grideuler2type& grid,
+	const GFM_ITM_interface& ls
+)
+{
+	double totalmass = 0.0;
+
+	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	{
+		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		{
+			double lsval = ls.get_sdf(i,j);
+
+			if (interiorsign * lsval > 0.0)
+			{
+				totalmass += grid[i][j](0) * params.dx * params.dy;
+			}
+		}
+	}
+
+	return totalmass;
+}
+
 

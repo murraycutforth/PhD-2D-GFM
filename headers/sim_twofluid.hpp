@@ -57,6 +57,15 @@ class sim_twofluid : public sim_base {
 		std::string filename,
 		const velocity_field_base& vfield
 	);
+
+
+	double fluid_mass
+	(
+		const double interiorsign,
+		const sim_info& params,
+		const grideuler2type& grid,
+		const GFM_ITM_interface& ls
+	);
 		
 
 	public:
