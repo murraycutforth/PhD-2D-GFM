@@ -5,6 +5,7 @@
 #	- The header-only Eigen library. Download from eigen.tuxfamily.org
 #	- The blitz++ array library. Working on removing this dependency..
 #	- My own PhD-Common headers. Download from https://github.com/murraycutforth/PhD-Common
+#	- My PhD-Interface-tracking-methods headers and object files
 #
 # Based on the file at http://hiltmon.com/
 #
@@ -16,9 +17,14 @@ TARGET := 2D-GFM
 EIGEN := -I ~/Libraries/eigen-v3.3.4
 COMMON := -I ./../PhD-Common
 RS := -I ./../exact_riemann_solver_stiffenedgas
+ITM := $(patsubst ./../%, -I ./../%, $(shell find ./../PhD-Interface-tracking-methods/headers/**/* -name '*.hpp' -exec dirname {} \; | sort | uniq)) 
 
 # External .o files
-EXTOBJS = ../exact_riemann_solver_stiffenedgas/exact_RS_stiffenedgas.o 
+ITMOBJECTS :=  $(shell find ./../PhD-Interface-tracking-methods/objectfiles/**/* -name '*.o')
+EXTOBJS = ../exact_riemann_solver_stiffenedgas/exact_RS_stiffenedgas.o $(ITMOBJECTS)
+
+# External link paths
+EXT_LINKPATH := -L /home/raid/mcc74/Libraries/NLopt-v2.4.2/lib -lnlopt -lm
 
 # Folders
 BUILDDIR := objectfiles
@@ -32,18 +38,18 @@ OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.cpp=.o))
 
 # Folder Lists
 BUILDLIST := $(BUILDDIR)
-EXTINCLIST := $(RS) $(EIGEN) $(HCLFRAMEWORK) $(COMMON) $(INCLIST)
+EXTINCLIST := $(ITM) $(RS) $(EIGEN) $(HCLFRAMEWORK) $(COMMON) $(INCLIST)
 
 # Shared Compiler Flags
-OPLEVEL := -O3
+OPLEVEL :=
 CFLAGS := -Wall -c -fopenmp -std=c++11 $(OPLEVEL) -g
-LINKFLAGS := -fopenmp $(OPLEVEL)
+LINKFLAGS := -fopenmp $(OPLEVEL) $(EXT_LINKPATH)
 
 # Linking Step
 $(TARGET): $(OBJECTS)
 	@mkdir -p $(BUILDLIST)
 	@echo "Linking..."
-	@echo "Linking $(TARGET) using options: $(LINKFLAGS)"; g++ $^ $(LINKFLAGS) $(EXTOBJS) -o $(TARGET)
+	@echo "Linking $(TARGET) using options: $(LINKFLAGS)"; g++ $^ $(EXTOBJS) $(LINKFLAGS) -o $(TARGET)
 	@echo "Success!"
 
 # Compilation Step

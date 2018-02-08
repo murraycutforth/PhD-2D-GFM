@@ -26,12 +26,6 @@ void pure_RS_exact :: solve_RP (
 	blitz::Array<double,1> Rprims_blitz (3);
 	blitz::Array<double,1> soln_blitz (3);
 	
-	for (int i=0; i<3; i++)
-	{
-		Lprims_blitz(i) = Lprims(i);
-		Rprims_blitz(i) = Rprims(i);
-	}
-	
 	exact_rs_stiffenedgas RS (gamma, gamma, pinf, pinf);
 		
 	if (paralleltox)

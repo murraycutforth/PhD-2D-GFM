@@ -1,6 +1,7 @@
 #include "GFM_settingsfile.hpp"
 #include "sim_base.hpp"
 #include "sim_onefluid.hpp"
+#include "sim_twofluid.hpp"
 #include <iostream>
 
 int main ()
@@ -19,6 +20,10 @@ int main ()
 	if (SF.sim_type == "onefluid")
 	{
 		sim = std::make_shared<sim_onefluid>();
+	}
+	else if (SF.sim_type == "twofluid")
+	{
+		sim = std::make_shared<sim_twofluid>();
 	}
 	else
 	{

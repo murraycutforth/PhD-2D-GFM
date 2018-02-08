@@ -150,11 +150,11 @@ void sim_onefluid :: set_sim_methods (const GFM_settingsfile& SF, std::shared_pt
 {
 	RS = std::make_shared<pure_RS_exact>();
 	
-	if (SF.method == "Godunov")
+	if (SF.FS == "Godunov")
 	{
 		FS = std::make_shared<FS_godunov>(RS);
 	}
-	else if (SF.method == "MUSCL")
+	else if (SF.FS == "MUSCL")
 	{
 		FS = std::make_shared<FS_MUSCL>(RS);
 	}

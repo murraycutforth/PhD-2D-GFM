@@ -2,7 +2,7 @@
 #define EULER_BC_H
 
 
-void apply_BCs_euler (const sim_info& params, grideuler2type& grid)
+inline void apply_BCs_euler (const sim_info& params, grideuler2type& grid)
 {
 	if (	params.BC_T == "periodic"
 		&& params.BC_L == "periodic"

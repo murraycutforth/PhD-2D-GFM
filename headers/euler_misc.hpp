@@ -87,6 +87,10 @@ namespace misc {
 		double p = W(3);
 		double e = eos::specific_ie(gamma, pinf, p, rho);
 		
+		assert(p >= 0.0);
+		assert(rho >= 0.0);
+		assert(e >= 0.0);
+		
 		conserved(0) = rho;
 		conserved(1) = rho * u;
 		conserved(2) = rho * v;
