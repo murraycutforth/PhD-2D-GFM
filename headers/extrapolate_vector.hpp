@@ -14,4 +14,13 @@ void extrapolate_vector
 	grideuler2type& grid2
 );
 
+void extrapolate_vector_mgfm
+(
+	const sim_info& params,
+	const GFM_ITM_interface& ls,
+	const int N,
+	grideuler2type& grid1, 
+	grideuler2type& grid2
+);
+
 #endif

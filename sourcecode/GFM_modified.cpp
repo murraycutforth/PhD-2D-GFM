@@ -1,11 +1,11 @@
-#include "GFM_riemann.hpp"
+#include "GFM_modified.hpp"
 #include "extrapolate_extension_vfield.hpp"
 #include "extrapolate_vector.hpp"
 #include "euler_misc.hpp"
 #include "mixed_RS_exact.hpp"
 
 
-void GFM_riemann :: set_ghost_states
+void GFM_modified :: set_ghost_states
 (
 	const sim_info& params, 
 	const GFM_ITM_interface& ls,
@@ -59,7 +59,7 @@ void GFM_riemann :: set_ghost_states
 				vec4type interfaceprims2;
 				
 				get_interpolated_mixedRPstates(params, prims1, prims2, ls, i, j, ds, interfaceprims2, interfaceprims1);
-				
+								
 				
 				// Fluid velocities in Cartesian frame
 				
@@ -110,21 +110,25 @@ void GFM_riemann :: set_ghost_states
 				Eigen::Vector2d u2_star = u_star * normal + u2_tang;
 				
 				
-				// Set the real fluid primitives here to the star-state primitives from MRP
+				// Set the real fluid entropy here and ghost fluid state
 				
 				if (lsval <= 0.0)
 				{
-					prims1[i][j](0) = rho_star_L;
-					prims1[i][j](1) = u1_star(0);
-					prims1[i][j](2) = u1_star(1);
-					prims1[i][j](3) = p_star;
-				}
-				else
-				{
+					prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, rho_star_L, p_star, prims1[i][j](3));
+					
 					prims2[i][j](0) = rho_star_R;
 					prims2[i][j](1) = u2_star(0);
 					prims2[i][j](2) = u2_star(1);
 					prims2[i][j](3) = p_star;
+				}
+				else
+				{
+					prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, rho_star_R, p_star, prims2[i][j](3));
+					
+					prims1[i][j](0) = rho_star_L;
+					prims1[i][j](1) = u1_star(0);
+					prims1[i][j](2) = u1_star(1);
+					prims1[i][j](3) = p_star;
 				}
 				
 				
@@ -135,7 +139,7 @@ void GFM_riemann :: set_ghost_states
 		}
 	}
 	
-	extrapolate_vector(params, ls, 6, prims1, prims2);
+	extrapolate_vector_mgfm(params, ls, 6, prims1, prims2);
 	extrapolate_extension_vfield(params, ls, 20, newvelocities);
 	
 	vfield->store_velocity_field(newvelocities, t);

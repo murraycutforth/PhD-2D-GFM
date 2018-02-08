@@ -6,4 +6,4 @@ FS MUSCL
 test_case circularexplosion
 outputpath ./output/
 ITM LS1
-GFM realGFM
+GFM MGFM

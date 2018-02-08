@@ -5,6 +5,7 @@
 #include "GFM_original.hpp"
 #include "GFM_real.hpp"
 #include "GFM_riemann.hpp"
+#include "GFM_modified.hpp"
 #include "euler_bc.hpp"
 #include "euler_misc.hpp"
 #include "pure_RS_exact.hpp"
@@ -277,6 +278,10 @@ void sim_twofluid :: set_sim_methods
 	else if (SF.GFM == "realGFM")
 	{
 		GFM = std::make_shared<GFM_real>(params);
+	}
+	else if (SF.GFM == "MGFM")
+	{
+		GFM = std::make_shared<GFM_modified>(params);
 	}
 	else
 	{
