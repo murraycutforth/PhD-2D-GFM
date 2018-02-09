@@ -34,7 +34,7 @@ void GFM_original :: set_ghost_states
 		}
 	}
 	
-	extrapolate_vector(params, ls, 6, prims1, prims2);
+	extrapolate_vector(params, ls, 10, prims1, prims2);
 	
 	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
 	{

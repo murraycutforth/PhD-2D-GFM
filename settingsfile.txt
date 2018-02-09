@@ -1,9 +1,9 @@
-Nx 100
-Ny 100
+Nx 325
+Ny 89
 CFL 0.4
 sim_type twofluid
 FS MUSCL
-test_case circularexplosion
+test_case shocked_helium_bubble
 outputpath ./output/
-ITM LS9
-GFM MGFM
+ITM CLSVOF
+GFM OGFM

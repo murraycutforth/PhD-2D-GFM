@@ -1,5 +1,6 @@
 #include "sim_twofluid.hpp"
 #include "levelset.hpp"
+#include "CLSVOF.hpp"
 #include "GFM_ITM_interface.hpp"
 #include "GFM_base.hpp"
 #include "GFM_original.hpp"
@@ -253,8 +254,8 @@ void sim_twofluid :: set_sim_parameters
 	}
 	else if (SF.test_case == "ST1_x")
 	{
-		eosparams.gamma2 = 2.4;
-		params.T = 0.14;
+		eosparams.gamma2 = 1.2;
+		params.T = 0.0007;
 	}
 	else if (SF.test_case == "ST2_y")
 	{
@@ -276,6 +277,7 @@ void sim_twofluid :: set_sim_parameters
 		params.T = 280.0;
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
+		params.output_freq = params.Nx;
 	}
 	else if (SF.test_case == "shocked_SF6")
 	{
@@ -382,6 +384,10 @@ void sim_twofluid :: set_sim_methods
 	{
 		ls = std::make_shared<Levelset>(params, 9);
 	}
+	else if (SF.ITM == "CLSVOF")
+	{
+		ls = std::make_shared<CLSVOF>(params);
+	}
 	else
 	{
 		assert(!"Invalid ITM choice");
@@ -445,12 +451,12 @@ void sim_twofluid :: set_sim_ICs
 		Lprims(0) = 1.0;
 		Lprims(1) = 0.0;
 		Lprims(2) = 0.0;
-		Lprims(3) = 1.0;
+		Lprims(3) = 100000.0;
 		
 		Rprims(0) = 0.125;
 		Rprims(1) = 0.0;
 		Rprims(2) = 0.0;
-		Rprims(3) = 0.1;
+		Rprims(3) = 10000.0;
 		
 		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
 		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
@@ -498,6 +504,118 @@ void sim_twofluid :: set_sim_ICs
 
 				grid1[i][j] = Lstate;
 				grid2[i][j] = Rstate;
+			}
+		}
+	}
+	else if (SF.test_case == "shocked_helium_bubble")
+	{
+		// Fluid 2 is helium 
+		
+		vec4type heprims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		heprims(0) = 0.138;
+		heprims(1) = 0.0;
+		heprims(2) = 0.0;
+		heprims(3) = 1.0;
+		
+		Lprims(0) = 1.3764;
+		Lprims(1) = -0.394;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.5698;
+		
+		Rprims(0) = 1.0;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.0;
+		
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims);
+		vec4type hestate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, heprims);
+		
+		Eigen::Vector2d centre;
+		centre << 175.0, 44.5;
+		double R = 25.0;
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				
+				
+				// Set air state
+				
+				if (CC(0) < 225.0) grid1[i][j] = Rstate;
+				else grid1[i][j] = Lstate;
+				
+				
+				// Set he state
+				
+				grid2[i][j] = hestate;
+				
+				
+				// Set ls
+				
+				double lsval = R - (CC - centre).norm();
+				ls.set_sdf(i, j, lsval);
+			}
+		}
+	}
+	else if (SF.test_case == "underwater_shocked_bubble")
+	{
+		// Fluid 1 is water
+		
+		vec4type airprims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		airprims(0) = 0.0012;
+		airprims(1) = 0.0;
+		airprims(2) = 0.0;
+		airprims(3) = 1.0;
+		
+		Lprims(0) = 1.31;
+		Lprims(1) = 67.32;
+		Lprims(2) = 0.0;
+		Lprims(3) = 19000.0;
+		
+		Rprims(0) = 1.0;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.0;
+		
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims);
+		vec4type airstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, airprims);
+		
+		Eigen::Vector2d centre;
+		centre << 6.0, 6.0;
+		double R = 3.0;
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				
+				
+				// Set air state
+				
+				if (CC(0) < 2.4) grid1[i][j] = Lstate;
+				else grid1[i][j] = Rstate;
+				
+				
+				// Set he state
+				
+				grid2[i][j] = airstate;
+				
+				
+				// Set ls
+				
+				double lsval = R - (CC - centre).norm();
+				ls.set_sdf(i, j, lsval);
 			}
 		}
 	}
