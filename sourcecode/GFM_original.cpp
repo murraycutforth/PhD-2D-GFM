@@ -34,7 +34,7 @@ void GFM_original :: set_ghost_states
 		}
 	}
 	
-	extrapolate_vector(params, ls, 10, prims1, prims2);
+	extrapolate_vector(params, ls, 6, prims1, prims2);
 	
 	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
 	{
@@ -55,7 +55,7 @@ void GFM_original :: set_ghost_states
 				double p_new = prims1[i][j](3);
 				double rho_new = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, prims2[i][j](0), prims2[i][j](3), p_new);
 				
-				assert(p_new >= 0.0);
+				// assert(p_new >= 0.0);
 				assert(rho_new >= 0.0);
 				
 				prims2[i][j](0) = rho_new;
@@ -76,7 +76,7 @@ void GFM_original :: set_ghost_states
 				double p_new = prims2[i][j](3);
 				double rho_new = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, prims1[i][j](0), prims1[i][j](3), p_new);
 				
-				assert(p_new >= 0.0);
+				// assert(p_new >= 0.0);
 				assert(rho_new >= 0.0);
 				
 				prims1[i][j](0) = rho_new;
@@ -98,8 +98,7 @@ void GFM_original :: set_ghost_states
 		}
 	}
 	
-	int N = 0.25 * (params.Nx + params.Ny);
-	extrapolate_extension_vfield(params, ls, N, newvelocities);
+	extrapolate_extension_vfield(params, ls, 20, newvelocities);
 	
 	vfield->store_velocity_field(newvelocities, t);
 }

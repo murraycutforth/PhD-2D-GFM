@@ -35,9 +35,17 @@ namespace misc {
 		double u = U(1) / rho;
 		double v = U(2) / rho;
 		double e = (U(3) / rho) - 0.5 * (u*u + v*v);
-		double p = eos::pressure(gamma, pinf, e, rho);
+		// double p = eos::pressure(gamma, pinf, e, rho);
 			
-		return rho >= 0.0 && e >= 0.0 && p >= 0.0;
+		return rho >= 0.0 && e >= 0.0;
+	}
+	
+	
+	inline bool is_physical_primitives (double gamma, double pinf, const vec4type& W)
+	{
+		double e = eos::specific_ie(gamma, pinf, W(3), W(0));
+		
+		return e >= 0.0 && W(0) >= 0.0;
 	}
 	
 	
@@ -87,7 +95,7 @@ namespace misc {
 		double p = W(3);
 		double e = eos::specific_ie(gamma, pinf, p, rho);
 		
-		assert(p >= 0.0);
+		// assert(p >= 0.0);
 		assert(rho >= 0.0);
 		assert(e >= 0.0);
 		
@@ -135,6 +143,40 @@ namespace misc {
 		flux(3) = v * (E + p);
 		
 		return flux;
+	}
+	
+	
+	inline matrix4d quasilinear_form_A (double gamma, double pinf, const vec4type& W)
+	{
+		double rho = W(0);
+		double u = W(1);
+		double p = W(3);
+		
+		matrix4d A = u * Eigen::Matrix<double, 4, 4>::Identity();
+		double c = eos::soundspeed(gamma, pinf, p, rho);
+		
+		A(0,1) = rho;
+		A(1,3) = 1.0 / rho;
+		A(3,1) = rho * c * c;
+		
+		return A;
+	}
+	
+	
+	inline matrix4d quasilinear_form_B (double gamma, double pinf, const vec4type& W)
+	{
+		double rho = W(0);
+		double v = W(2);
+		double p = W(3);
+		
+		matrix4d B = v * Eigen::Matrix<double, 4, 4>::Identity();
+		double c = eos::soundspeed(gamma, pinf, p, rho);
+		
+		B(0,2) = rho;
+		B(2,3) = 1.0 / rho;
+		B(3,2) = rho * c * c;
+		
+		return B;
 	}
 
 }

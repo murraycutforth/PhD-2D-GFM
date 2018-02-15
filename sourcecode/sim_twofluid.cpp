@@ -13,7 +13,7 @@
 #include "mixed_RS_exact.hpp"
 #include "FS_godunov.hpp"
 #include "FS_MUSCL.hpp"
-
+#include <cmath>
 
 
 
@@ -37,6 +37,7 @@ void sim_twofluid :: run_sim (GFM_settingsfile SF)
 	BBrange realcells1 (params.numGC, params.Ny + params.numGC, params.numGC, params.Nx + params.numGC);
 	BBrange realcells2 (params.numGC, params.Ny + params.numGC, params.numGC, params.Nx + params.numGC);
 	set_sim_ICs(SF, params, eosparams, grid1, grid2, *ls);
+	ls->initialisation();
 	
 
 	int numsteps = 0;
@@ -298,6 +299,7 @@ void sim_twofluid :: set_sim_parameters
 		params.dx = 12.0 / params.Nx;
 		params.dy = 12.0 / params.Ny;
 		params.T = 0.05;
+		params.output_freq = params.Nx / 2;
 	}
 	else if (SF.test_case == "underwater_explosion")
 	{
@@ -309,6 +311,19 @@ void sim_twofluid :: set_sim_parameters
 		params.dx = 10.0 / params.Nx;
 		params.dy = 10.0 / params.Ny;
 		params.T = 0.005;
+		params.output_freq = params.Nx / 2;
+	}
+	else if (SF.test_case == "tin_air_implosion")
+	{
+		eosparams.gamma1 = 3.27;
+		eosparams.pinf1 = 149500.0;
+		
+		params.x0 = 0.0;
+		params.y0 = -25.0;
+		params.dx = 25.0/params.Nx;
+		params.dy = 50.0/params.Ny;
+		params.T = 0.08;
+		params.BC_L = "reflective";
 	}
 	else
 	{
@@ -436,7 +451,37 @@ void sim_twofluid :: set_sim_ICs
 				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
 				double lsval = (CC - centre).norm() - R;
 				
+				int N = 10;
+				int totalnumsamples = N*N;
+				int numinside = 0;
+				double delx = params.dx/N;
+				double dely = params.dy/N;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				Eigen::Vector2d samplepos;
+				
+				for (int a=0; a<N; a++)
+				{
+					for (int b=0; b<N; b++)
+					{
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						samplepos -= centre;
+						
+						if (samplepos.norm() <= R) numinside++;
+					}
+				}
+	
+				double frac = double(numinside)/totalnumsamples;
+				
+				double zval = frac;
+				
 				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
 				
 				grid1[i][j] = Lstate;
 				grid2[i][j] = Rstate;
@@ -467,8 +512,10 @@ void sim_twofluid :: set_sim_ICs
 			{
 				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
 				double lsval = CC(0) - 0.5;
+				double zval = std::min(1.0, std::max(0.0, (0.5 - CC(0) + 0.5 * params.dx) / params.dx));
 
 				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
 
 				grid1[i][j] = Lstate;
 				grid2[i][j] = Rstate;
@@ -499,8 +546,10 @@ void sim_twofluid :: set_sim_ICs
 			{
 				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
 				double lsval = CC(1) - 0.7;
+				double zval = std::min(1.0, std::max(0.0, (0.7 - CC(1) + 0.5 * params.dy) / params.dy));
 
 				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
 
 				grid1[i][j] = Lstate;
 				grid2[i][j] = Rstate;
@@ -558,8 +607,38 @@ void sim_twofluid :: set_sim_ICs
 				
 				// Set ls
 				
+				int N = 10;
+				int totalnumsamples = N*N;
+				int numinside = 0;
+				double delx = params.dx/N;
+				double dely = params.dy/N;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				Eigen::Vector2d samplepos;
+				
+				for (int a=0; a<N; a++)
+				{
+					for (int b=0; b<N; b++)
+					{
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						samplepos -= centre;
+						
+						if (samplepos.norm() > R) numinside++;
+					}
+				}
+	
+				double frac = double(numinside)/totalnumsamples;
+				
+				double zval = frac;
+				
 				double lsval = R - (CC - centre).norm();
 				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
 			}
 		}
 	}
@@ -614,8 +693,251 @@ void sim_twofluid :: set_sim_ICs
 				
 				// Set ls
 				
+				int N = 10;
+				int totalnumsamples = N*N;
+				int numinside = 0;
+				double delx = params.dx/N;
+				double dely = params.dy/N;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				Eigen::Vector2d samplepos;
+				
+				for (int a=0; a<N; a++)
+				{
+					for (int b=0; b<N; b++)
+					{
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						samplepos -= centre;
+						
+						if (samplepos.norm() <= R) numinside++;
+					}
+				}
+	
+				double frac = double(numinside)/totalnumsamples;
+				
+				double zval = 1.0 - frac;
+				
 				double lsval = R - (CC - centre).norm();
 				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
+			}
+		}
+	}
+	else if (SF.test_case == "underwater_explosion")
+	{
+		// Fluid 1 is air
+		
+		vec4type waterprims (4);
+		vec4type bubbleprims (4);
+		vec4type ambientprims (4);
+		
+		waterprims(0) = 1000.0;
+		waterprims(1) = 0.0;
+		waterprims(2) = 0.0;
+		waterprims(3) = 1.0e5;
+		
+		bubbleprims(0) = 1270.0;
+		bubbleprims(1) = 0.0;
+		bubbleprims(2) = 0.0;
+		bubbleprims(3) = 8.29e8;
+		
+		ambientprims(0) = 1.0;
+		ambientprims(1) = 0.0;
+		ambientprims(2) = 0.0;
+		ambientprims(3) = 1.0e5;
+		
+		vec4type waterstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, waterprims);
+		vec4type bubblestate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, bubbleprims);
+		vec4type ambientstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, ambientprims);
+		
+		Eigen::Vector2d centre;
+		centre << 0.0, 0.0;
+		double R = 1.0;
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				
+				
+				// Set water state
+				
+				grid2[i][j] = waterstate;
+				
+				
+				// Set air state
+				
+				if (CC(1) < 2.0)
+				{
+					grid1[i][j] = bubblestate;
+				}
+				else
+				{
+					grid1[i][j] = ambientstate;
+				}
+				
+				
+				// Set level set value
+				
+				double lsbubbleval = (CC - centre).norm() - R;
+				double lssurfaceval = 2.5 - CC(1);
+				double lsval = std::min(lsbubbleval, lssurfaceval);
+				ls.set_sdf(i, j, lsval);
+				
+				
+				// Set volume fraction
+				
+				if (CC(1) < 2.0)
+				{
+					int N = 10;
+					int totalnumsamples = N*N;
+					int numinside = 0;
+					double delx = params.dx/N;
+					double dely = params.dy/N;
+					
+					Eigen::Vector2d BL;
+					BL(0) = CC(0) - 0.5 * params.dx;
+					BL(1) = CC(1) - 0.5 * params.dy;
+					Eigen::Vector2d samplepos;
+					
+					for (int a=0; a<N; a++)
+					{
+						for (int b=0; b<N; b++)
+						{
+							samplepos(0) = BL(0) + (a + 0.5) * delx;
+							samplepos(1) = BL(1) + (b + 0.5) * dely;
+							
+							samplepos -= centre;
+							
+							if (samplepos.norm() <= R) numinside++;
+						}
+					}
+	
+					double zval = double(numinside)/totalnumsamples;
+					ls.set_z(i, j, zval);
+				}
+				else
+				{
+					double zval = 1.0 - std::min(1.0, std::max(0.0, (2.5 - CC(1) + 0.5 * params.dy) / params.dy));
+					ls.set_z(i, j, zval);
+				}
+			}
+		}
+	}
+	else if (SF.test_case == "tin_air_implosion")
+	{
+		// Fluid 2 is air
+		
+		vec4type airprims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+
+		airprims(0) = 0.001;
+		airprims(1) = 0.0;
+		airprims(2) = 0.0;
+		airprims(3) = 1.0;
+		
+		Lprims(0) = 11.84;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1000000.0;
+		
+		Rprims(0) = 7.28;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.0;
+		
+		vec4type airstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, airprims);
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{				
+				
+				// Set tin state as fraction of area inside circle of radius 24
+				
+				int numsamples = 10;
+				int totalnumsamples = numsamples*numsamples;
+				int numinside = 0;
+				double delx = params.dx/numsamples;
+				double dely = params.dy/numsamples;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						if (samplepos.norm() <= 24.0) numinside++;
+					}
+				}
+				
+				double insideratio = double(numinside) / totalnumsamples;
+				
+				vec4type tinprims = insideratio * Rprims + (1.0 - insideratio) * Lprims;
+				grid1[i][j] = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, tinprims);
+				
+				
+				
+				// Set air state
+				
+				grid2[i][j] = airstate;
+				
+				
+				
+				// Set z and phi
+				
+				numinside = 0;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						double theta = atan2(samplepos(1), samplepos(0));
+						theta -= atan(1) * 2;
+						double r_interface = 20.0 + 0.4 * cos(22 * theta) + 0.4 * cos(17 * theta) + 0.3 * cos(29 * theta);
+						
+						if (samplepos.norm() <= r_interface) numinside++;
+					}
+				}
+
+				double z = 1.0 - double(numinside)/totalnumsamples;
+				ls.set_z(i, j, z);
+				
+				double mindist = 1e100;
+				
+				for (double theta=0.0; theta<M_PI; theta += 0.005)
+				{
+					double angle = theta - atan(1) * 2;
+					double r_interface = 20.0 + 0.4 * cos(22 * angle) + 0.4 * cos(17 * angle) + 0.3 * cos(29 * angle);
+					
+					Eigen::Vector2d interfacepos;
+					interfacepos << r_interface * cos(angle), r_interface * sin(angle);
+					
+					double sign = std::copysign(1.0, r_interface - cc.norm());
+					double dist = (cc - interfacepos).norm() * sign;
+					
+					mindist = fabs(dist) < fabs(mindist) ? dist : mindist;
+				}
+				
+				ls.set_sdf(i, j, mindist);
 			}
 		}
 	}

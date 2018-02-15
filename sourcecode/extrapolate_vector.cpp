@@ -25,9 +25,9 @@ void extrapolate_vector
 			updated_grid1[i][j] = grid1[i][j];
 			updated_grid2[i][j] = grid2[i][j];
 			assert(grid1[i][j](0) >= 0.0);
-			assert(grid1[i][j](3) >= 0.0);
+			// assert(grid1[i][j](3) >= 0.0);
 			assert(grid2[i][j](0) >= 0.0);
-			assert(grid2[i][j](3) >= 0.0);
+			// assert(grid2[i][j](3) >= 0.0);
 		}
 	}
 	
@@ -111,9 +111,9 @@ void extrapolate_vector
 				}
 				
 				assert(updated_grid1[i][j](0) >= 0.0);
-				assert(updated_grid1[i][j](3) >= 0.0);
+				// assert(updated_grid1[i][j](3) >= 0.0);
 				assert(updated_grid2[i][j](0) >= 0.0);
-				assert(updated_grid2[i][j](3) >= 0.0);
+				// assert(updated_grid2[i][j](3) >= 0.0);
 			}
 		}
 		
@@ -162,9 +162,9 @@ void extrapolate_vector_mgfm
 			updated_grid1[i][j] = grid1[i][j];
 			updated_grid2[i][j] = grid2[i][j];
 			assert(grid1[i][j](0) >= 0.0);
-			assert(grid1[i][j](3) >= 0.0);
+			// assert(grid1[i][j](3) >= 0.0);
 			assert(grid2[i][j](0) >= 0.0);
-			assert(grid2[i][j](3) >= 0.0);
+			// assert(grid2[i][j](3) >= 0.0);
 		}
 	}
 	
@@ -251,9 +251,9 @@ void extrapolate_vector_mgfm
 					}
 					
 					assert(updated_grid1[i][j](0) >= 0.0);
-					assert(updated_grid1[i][j](3) >= 0.0);
+					// assert(updated_grid1[i][j](3) >= 0.0);
 					assert(updated_grid2[i][j](0) >= 0.0);
-					assert(updated_grid2[i][j](3) >= 0.0);
+					// assert(updated_grid2[i][j](3) >= 0.0);
 				}
 			}
 		}

@@ -17,7 +17,7 @@
 
 class sim_twofluid : public sim_base {
 	
-	private:
+	protected:
 	
 	void set_sim_parameters 
 	(
@@ -70,7 +70,7 @@ class sim_twofluid : public sim_base {
 
 	public:
 
-	void run_sim (GFM_settingsfile SF);
+	virtual void run_sim (GFM_settingsfile SF) override;
 
 	double compute_dt (double CFL, const sim_info& params, const grideuler2type& grid1, const grideuler2type& grid2, const GFM_ITM_interface& ls, const binarySGparams& eosparams, double T, double t);
 };

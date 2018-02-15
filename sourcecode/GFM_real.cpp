@@ -26,12 +26,19 @@ void GFM_real :: set_ghost_states
 	{
 		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
 		{
-			assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
-			assert(misc::is_physical_state(eosparams.gamma2, eosparams.pinf2, grid2[i][j]));
-			
+			double lsval = ls.get_sdf(i, j);
 			newvelocities[i][j] = Eigen::Vector2d::Zero();
 			prims1[i][j] = misc::conserved_to_primitives(eosparams.gamma1, eosparams.pinf1, grid1[i][j]);
 			prims2[i][j] = misc::conserved_to_primitives(eosparams.gamma2, eosparams.pinf2, grid2[i][j]);
+			
+			if (lsval <= 0.0)
+			{
+				assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
+			}
+			else
+			{
+				assert(misc::is_physical_state(eosparams.gamma2, eosparams.pinf2, grid2[i][j]));
+			}
 		}
 	}
 	
@@ -144,17 +151,22 @@ void GFM_real :: set_ghost_states
 				Lprims(0) = interfaceprims1(0);
 				Lprims(1) = u1.dot(normal);
 				Lprims(2) = 0.0;
-				Lprims(3) = interfaceprims1(3);
+				Lprims(3) = std::max(1e-6, interfaceprims1(3));
 				
 				Rprims(0) = interfaceprims2(0);
 				Rprims(1) = u2.dot(normal);
 				Rprims(2) = 0.0;
-				Rprims(3) = interfaceprims2(3);
+				Rprims(3) = std::max(1e-6, interfaceprims2(3));
 				
 				Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
 				Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
 				
 				mixed_RS->solve_mixed_RP(eosparams.gamma1, eosparams.pinf1, eosparams.gamma2, eosparams.pinf2, Lstate, Rstate, p_star, u_star, rho_star_L, rho_star_R);
+				
+				if (p_star != p_star)
+				{
+					std::cout << "Exact RS returned NaN" << std::endl;
+				}
 				
 				
 				// Compute star-state velocities in Cartesian frame

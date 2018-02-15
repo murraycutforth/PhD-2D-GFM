@@ -43,66 +43,62 @@ void extrapolate_extension_vfield
 					double lsval = ls.get_sdf(i, j);
 					Eigen::Vector2d normal = ls.get_normal(params.cellcentre_coord(i, j));
 					
-					if (normal.norm() < 1e-12)
+
+					if (normal.norm() > 1e-12)
 					{
-						normal(0) = 1.0;
-						normal(1) = 0.0;
-					}
-					else
-					{
+						
 						normal /= normal.norm();
+						
+						if (lsval <= 0.0)
+						{
+							// Fluid 2 is ghost here - information flows in direction of -normal
+							
+							if (normal(0) > 0.0)
+							{
+								del_v_x = velocities[i][j+1] - velocities[i][j];
+							}
+							else
+							{
+								del_v_x = velocities[i][j] - velocities[i][j-1];
+							}
+							
+							if (normal(1) > 0.0)
+							{
+								del_v_y = velocities[i+1][j] - velocities[i][j];
+							}
+							else
+							{
+								del_v_y = velocities[i][j] - velocities[i-1][j];
+							}
+							
+							updated_velocities[i][j] = velocities[i][j] + (dt / params.dx) * normal(0) * del_v_x + (dt / params.dy) * normal(1) * del_v_y;
+						}
+						else
+						{
+							// Fluid 1 is ghost here - information flows in direction of +normal
+							
+							if (normal(0) > 0.0)
+							{
+								del_v_x = velocities[i][j] - velocities[i][j-1];
+							}
+							else
+							{
+								del_v_x = velocities[i][j+1] - velocities[i][j];
+							}
+							
+							if (normal(1) > 0.0)
+							{
+								del_v_y = velocities[i][j] - velocities[i-1][j];
+							}
+							else
+							{
+								del_v_y = velocities[i+1][j] - velocities[i][j];
+							}
+							
+							updated_velocities[i][j] = velocities[i][j] - (dt / params.dx) * normal(0) * del_v_x - (dt / params.dy) * normal(1) * del_v_y;
+						}
+
 					}
-					
-					if (lsval <= 0.0)
-					{
-						// Fluid 2 is ghost here - information flows in direction of -normal
-						
-						if (normal(0) > 0.0)
-						{
-							del_v_x = velocities[i][j+1] - velocities[i][j];
-						}
-						else
-						{
-							del_v_x = velocities[i][j] - velocities[i][j-1];
-						}
-						
-						if (normal(1) > 0.0)
-						{
-							del_v_y = velocities[i+1][j] - velocities[i][j];
-						}
-						else
-						{
-							del_v_y = velocities[i][j] - velocities[i-1][j];
-						}
-						
-						updated_velocities[i][j] = velocities[i][j] + (dt / params.dx) * normal(0) * del_v_x + (dt / params.dy) * normal(1) * del_v_y;
-					}
-					else
-					{
-						// Fluid 1 is ghost here - information flows in direction of +normal
-						
-						if (normal(0) > 0.0)
-						{
-							del_v_x = velocities[i][j] - velocities[i][j-1];
-						}
-						else
-						{
-							del_v_x = velocities[i][j+1] - velocities[i][j];
-						}
-						
-						if (normal(1) > 0.0)
-						{
-							del_v_y = velocities[i][j] - velocities[i-1][j];
-						}
-						else
-						{
-							del_v_y = velocities[i+1][j] - velocities[i][j];
-						}
-						
-						updated_velocities[i][j] = velocities[i][j] - (dt / params.dx) * normal(0) * del_v_x - (dt / params.dy) * normal(1) * del_v_y;
-					}
-					
-					
 				}
 			}
 		}
