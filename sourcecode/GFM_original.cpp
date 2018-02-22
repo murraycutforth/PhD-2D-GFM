@@ -21,6 +21,13 @@ void GFM_original :: set_ghost_states
 	static grideuler2type prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	
+	if (int(newvelocities.size()) != params.Ny + 2 * params.numGC)
+	{
+		newvelocities = gridVector2dtype(params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
+		prims1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		prims2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	}
+	
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{
 		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
@@ -98,7 +105,29 @@ void GFM_original :: set_ghost_states
 		}
 	}
 	
-	extrapolate_extension_vfield(params, ls, 20, newvelocities);
-	
+	if (use_extension_vfield)
+	{ 
+		extrapolate_extension_vfield(params, ls, 20, newvelocities);
+	}
+	else
+	{
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				double lsval = ls.get_sdf(i, j);
+				
+				if (lsval <= 0.0)
+				{
+					newvelocities[i][j] << prims1[i][j](1), prims1[i][j](2);
+				}
+				else
+				{
+					newvelocities[i][j] << prims2[i][j](1), prims2[i][j](2);
+				}
+			}
+		}
+	}
+		
 	vfield->store_velocity_field(newvelocities, t);
 }

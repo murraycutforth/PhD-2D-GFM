@@ -10,9 +10,21 @@ void extrapolate_vector
 	grideuler2type& grid1, 
 	grideuler2type& grid2
 )
-{	
+{
+	/*
+	 * Extrapolate primitives outwards into ghost region - all real cells are held constant
+	 */
+		
 	static grideuler2type updated_grid1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type updated_grid2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	
+	if (int(updated_grid1.size()) != params.Ny + 2 * params.numGC)
+	{
+		updated_grid1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		updated_grid2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	}
+		
+	
 	vec4type del_vec_x;
 	vec4type del_vec_y;
 	double dt = 0.5 * std::min(params.dx, params.dy);
@@ -25,9 +37,7 @@ void extrapolate_vector
 			updated_grid1[i][j] = grid1[i][j];
 			updated_grid2[i][j] = grid2[i][j];
 			assert(grid1[i][j](0) >= 0.0);
-			// assert(grid1[i][j](3) >= 0.0);
 			assert(grid2[i][j](0) >= 0.0);
-			// assert(grid2[i][j](3) >= 0.0);
 		}
 	}
 	
@@ -111,9 +121,7 @@ void extrapolate_vector
 				}
 				
 				assert(updated_grid1[i][j](0) >= 0.0);
-				// assert(updated_grid1[i][j](3) >= 0.0);
 				assert(updated_grid2[i][j](0) >= 0.0);
-				// assert(updated_grid2[i][j](3) >= 0.0);
 			}
 		}
 		
@@ -153,6 +161,12 @@ void extrapolate_vector_mgfm
 	vec4type del_vec_x;
 	vec4type del_vec_y;
 	double dt = 0.5 * std::min(params.dx, params.dy);
+	
+	if (int(updated_grid1.size()) != params.Ny + 2 * params.numGC)
+	{
+		updated_grid1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		updated_grid2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	}
 
 
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)

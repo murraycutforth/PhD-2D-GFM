@@ -14,6 +14,11 @@ void extrapolate_extension_vfield
 	Eigen::Vector2d del_v_y;
 	double dt = 0.5 * std::min(params.dx, params.dy);
 	
+	if (int(updated_velocities.size()) != params.Ny + 2 * params.numGC)
+	{
+		updated_velocities = gridVector2dtype(params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
+	}
+	
 	
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{

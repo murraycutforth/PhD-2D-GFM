@@ -1,4 +1,5 @@
 #include "sim_circularexplosiontest.hpp"
+#include "interpolation.hpp"
 #include "euler_misc.hpp"
 #include "pure_RS_exact.hpp"
 #include "FS_MUSCL.hpp"
@@ -125,17 +126,21 @@ void sim_circularexplosiontest :: run_sim (GFM_settingsfile SF)
 			// Setup and run GFM to end
 			// Compute L1, L2, and Linf errors compared to reference solution
 	
-	std::vector<std::string> GFMs = {"OGFM", "MGFM", "realGFM", "riemannGFM"};
+	std::vector<std::string> GFMs = {"OGFM", "MGFM", "realGFM", "riemannGFM", "VOFGFM"};
 	std::vector<int> res = {50, 100, 200, 400};
 	
 	for (std::string thisGFM : GFMs)
 	{
 		std::ofstream outfile;
-		outfile.open("./output/CEtest-" + thisGFM + ".dat");
+		outfile.open("./output/CEtest2/CEtesterror-" + thisGFM + ".dat");
+		
+		std::ofstream outfile2;
+		outfile2.open("./output/CEtest2/CEtestconservation-" + thisGFM + ".dat");
 		
 		SF.test_case = "circularexplosion";
 		SF.FS = "MUSCL";
 		SF.GFM = thisGFM;
+		SF.ITM = (thisGFM == "VOFGFM") ? "PYVOF" : "LS9";
 		
 		for (int thisres : res)
 		{
@@ -180,6 +185,8 @@ void sim_circularexplosiontest :: run_sim (GFM_settingsfile SF)
 			t = 0.0;
 					
 			std::cout << "Initialisation of GFM complete. Beginning time iterations with CFL = " << SF.CFL << "." << std::endl;
+			
+			double initialmass = fluid_mass(-1.0, params, grid1, *ls);
 				
 			while (t < params.T)
 			{
@@ -201,9 +208,18 @@ void sim_circularexplosiontest :: run_sim (GFM_settingsfile SF)
 			}
 			
 			// Call function to get the L1, L2 and Linf errors here
+
+			double l1, l2, linf;
+			compute_errors(l1, l2, linf, params1, grid, params, grid1, grid2, *ls);
+			outfile << thisres << " " << l1 << " " << l2 << " " << linf << std::endl;
+			
+			double finalmass = fluid_mass(-1.0, params, grid1, *ls);
+			
+			outfile2 << thisres << " " << fabs(finalmass - initialmass) / initialmass << std::endl;
 		}
 		
 		outfile.close();
+		outfile2.close();
 	}
 	
 	
@@ -233,4 +249,51 @@ double sim_circularexplosiontest :: compute_onefluid_dt (double CFL, const sim_i
 	if (t + dt > T) dt = T - t;
 
 	return dt;
+}
+	
+	
+void sim_circularexplosiontest :: compute_errors (double& l1, double& l2, double& linf, const sim_info& params1, const grideuler2type& gridref, const sim_info& params, const grideuler2type& grid1, const grideuler2type& grid2, const GFM_ITM_interface& ls)
+{
+	griddoubletype gridrefdensities (params1.Ny + 2 * params1.numGC, std::vector<double>(params1.Nx + 2 * params1.numGC));
+
+	for (int i=0; i<params1.Ny + params1.numGC * 2; i++)
+	{
+		for (int j=0; j<params1.Nx + 2 * params1.numGC; j++)
+		{
+			gridrefdensities[i][j] = gridref[i][j](0);
+		}
+	}
+
+	double sumdiff = 0.0;
+	double sumsqdiff = 0.0;
+	double maxdiff = 0.0;
+
+	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	{
+		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		{
+			Eigen::Vector2d CC = params.cellcentre_coord(i,j);
+			double realdensity;
+
+			if (ls.get_sdf(i,j) <= 0.0)
+			{
+				realdensity = grid1[i][j](0);
+			}
+			else
+			{
+				realdensity = grid2[i][j](0);
+			}
+
+
+			double diff = realdensity - grid_bilinear_interpolate<double>(params1, gridrefdensities, CC);
+
+			sumdiff += fabs(diff);
+			sumsqdiff += diff * diff;
+			maxdiff = std::max(maxdiff, fabs(diff));
+		}
+	}
+
+	l1 = params.dx * params.dy * sumdiff;
+	l2 = params.dx * params.dy * sqrt(sumsqdiff);
+	linf = params.dx * params.dy * maxdiff;
 }

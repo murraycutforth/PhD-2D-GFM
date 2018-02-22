@@ -20,7 +20,14 @@ void GFM_riemann :: set_ghost_states
 	static gridVector2dtype newvelocities (params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
 	static grideuler2type prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
-	double ds = 1.5 * std::min(params.dx, params.dy);
+	double ds = 1.0 * std::min(params.dx, params.dy);
+	
+	if (int(newvelocities.size()) != params.Ny + 2 * params.numGC)
+	{
+		newvelocities = gridVector2dtype(params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
+		prims1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		prims2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	}
 	
 	
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
@@ -35,6 +42,11 @@ void GFM_riemann :: set_ghost_states
 			prims2[i][j] = misc::conserved_to_primitives(eosparams.gamma2, eosparams.pinf2, grid2[i][j]);
 		}
 	}
+	
+	
+	// Do this in case we end up sampling ghost cells in the mixed RP
+	
+	extrapolate_vector(params, ls, 2, prims1, prims2);
 	
 	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
 	{
@@ -91,12 +103,12 @@ void GFM_riemann :: set_ghost_states
 				Lprims(0) = interfaceprims1(0);
 				Lprims(1) = u1.dot(normal);
 				Lprims(2) = 0.0;
-				Lprims(3) = interfaceprims1(3);
+				Lprims(3) = std::max(1e-6, interfaceprims1(3));
 				
 				Rprims(0) = interfaceprims2(0);
 				Rprims(1) = u2.dot(normal);
 				Rprims(2) = 0.0;
-				Rprims(3) = interfaceprims2(3);
+				Rprims(3) = std::max(1e-6, interfaceprims2(3));
 				
 				Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
 				Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
@@ -136,7 +148,30 @@ void GFM_riemann :: set_ghost_states
 	}
 	
 	extrapolate_vector(params, ls, 6, prims1, prims2);
-	extrapolate_extension_vfield(params, ls, 20, newvelocities);
+	
+	if (use_extension_vfield)
+	{ 
+		extrapolate_extension_vfield(params, ls, 20, newvelocities);
+	}
+	else
+	{
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				double lsval = ls.get_sdf(i, j);
+				
+				if (lsval <= 0.0)
+				{
+					newvelocities[i][j] << prims1[i][j](1), prims1[i][j](2);
+				}
+				else
+				{
+					newvelocities[i][j] << prims2[i][j](1), prims2[i][j](2);
+				}
+			}
+		}
+	}
 	
 	vfield->store_velocity_field(newvelocities, t);
 	

@@ -1,0 +1,9 @@
+Nx 400
+Ny 400
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case underwater_explosion
+outputpath /local/data2/public/mcc74/2D-GFM/underwater_explosion/
+ITM LS9
+GFM realGFM

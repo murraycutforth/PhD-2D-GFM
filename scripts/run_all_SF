@@ -1,0 +1,6 @@
+cd ..
+FILES=./scripts/${1}/*.txt
+for f in ${FILES}
+do
+	./2D-GFM ${f}
+done

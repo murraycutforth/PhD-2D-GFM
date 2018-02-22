@@ -1,9 +1,9 @@
-Nx 200
-Ny 200
+Nx 325
+Ny 89
 CFL 0.4
-sim_type twofluid
+sim_type CEtest
 FS MUSCL
-test_case underwater_shocked_bubble
+test_case shocked_helium_bubble
 outputpath /local/data2/public/mcc74/2D-GFM/
-ITM LS9
-GFM realGFM
+ITM LS3
+GFM OGFM

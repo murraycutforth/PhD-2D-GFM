@@ -1,0 +1,9 @@
+Nx 200
+Ny 200
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case underwater_shocked_bubble
+outputpath ./output/usb/
+ITM CLSVOF
+GFM riemannGFM
