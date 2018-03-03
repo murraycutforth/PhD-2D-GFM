@@ -5,3 +5,5 @@ output/*
 2D-GFM
 
 .nfs*
+
+scripts/thesisresults/data/*

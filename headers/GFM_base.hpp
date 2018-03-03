@@ -3,6 +3,7 @@
 
 #include "velocity_field.hpp"
 #include "velocity_field_firstorder.hpp"
+#include "velocity_field_invdist.hpp"
 #include "mixed_RS_base.hpp"
 #include "sim_info.hpp"
 #include "GFM_ITM_interface.hpp"

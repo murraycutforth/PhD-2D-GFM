@@ -2,6 +2,7 @@
 #include "levelset.hpp"
 #include "VOF.hpp"
 #include "MOF.hpp"
+#include "MOF_advection.hpp"
 #include "EMOF2_reconstruction.hpp"
 #include "CLSVOF.hpp"
 #include "GFM_ITM_interface.hpp"
@@ -173,9 +174,9 @@ void sim_twofluid :: output
 	outfile4.open(filename + "-" + std::to_string(numsteps) + "-z.dat");
 	
 	
-	for (int i=1; i<params.Ny + 2 * params.numGC - 1; i++)
+	for (int i=2; i<params.Ny + 2 * params.numGC - 2; i++)
 	{
-		for (int j=1; j<params.Nx + 2 * params.numGC - 1; j++)
+		for (int j=2; j<params.Nx + 2 * params.numGC - 2; j++)
 		{
 			Eigen::Vector2d CC = params.cellcentre_coord(i, j);
 			
@@ -323,6 +324,17 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_B = "reflective";
 		params.output_freq = 8;
 	}
+	else if (SF.test_case == "RMI")
+	{
+		eosparams.gamma2 = 1.093;
+
+		params.dx = 4.0 / params.Nx;
+		params.dy = 1.0 / params.Ny;
+		params.T = 10.0;
+		params.BC_T = "reflective";
+		params.BC_B = "reflective";
+		params.output_freq = 10;
+	}
 	else if (SF.test_case == "underwater_shocked_bubble")
 	{
 		eosparams.gamma1 = 7.15;
@@ -417,6 +429,8 @@ void sim_twofluid :: set_sim_methods
 	{
 		assert(!"Invalid GFM choice");
 	}
+	
+	GFM->use_extension_vfield = false;
 	
 	
 	if (SF.ITM == "LS1")
@@ -991,6 +1005,111 @@ void sim_twofluid :: set_sim_ICs
 				ls.set_sdf(i, j, mindist);
 			}
 		}
+	}
+	else if (SF.test_case == "RMI")
+	{
+		// Air is fluid 1
+		
+		vec4type sf6prims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+
+		sf6prims(0) = 5.04;
+		sf6prims(1) = 0.0;
+		sf6prims(2) = 0.0;
+		sf6prims(3) = 1.0;
+		
+		Lprims(0) = 1.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.0;
+		
+		Rprims(0) = 1.411;
+		Rprims(1) = -0.39;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.628;
+		
+		vec4type sf6state = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, sf6prims);
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims);
+
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);	
+				
+				if (cc(0) < 3.2)
+				{
+					grid1[i][j] = Lstate;
+				}
+				else
+				{
+					grid1[i][j] = Rstate;
+				}
+
+				grid2[i][j] = sf6state;
+				
+				
+				// Set z as fraction of area inside sinusoidal interface
+
+				double x1 = 2.9;
+				double eps = 0.2;
+				int numsamples = 10;
+				int totalnumsamples = numsamples*numsamples;
+				int numinside = 0;
+				double delx = params.dx/numsamples;
+				double pi = atan(1.0) * 4.0;
+				double dely = params.dy/numsamples;
+				
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						double interfacex = x1 - eps * sin(2.0 * pi * (samplepos(1) + 0.25));
+						
+						
+						if (interfacex > samplepos(0)) 
+						{
+							numinside++;
+						}
+					}
+				}
+
+				double zval = 1.0 - double(numinside)/totalnumsamples;
+
+				ls.set_z(i, j, zval);
+
+
+				// Set level set by iterating along sinusoidal interface
+
+				double mindist = 1e100;
+
+				for (double ypos = 0.0; ypos <=0.5; ypos += params.dy * 0.1)
+				{
+					double xpos = x1 - eps * sin(2.0 * M_PI * (ypos + 0.25));
+
+					Eigen::Vector2d interfacepos;
+					interfacepos << xpos, ypos;
+
+					mindist = std::min(mindist, (interfacepos - cc).norm());
+				}
+
+				double lsval = std::copysign(mindist, 0.5 - zval);
+
+				ls.set_sdf(i, j, lsval);
+			}
+		}
+
+
 	}
 	else if (SF.test_case == "shocked_SF6")
 	{

@@ -1,6 +1,7 @@
 #include "GFM_VOF.hpp"
 #include "euler_misc.hpp"
 #include "mixed_RS_exact.hpp"
+#include "euler_bc.hpp"
 #include "GFM_VOF_interface.hpp"
 
 
@@ -23,7 +24,7 @@ void GFM_VOF :: set_ghost_states
 	static grideuler2type MRPsoln1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type MRPsoln2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static std::vector<std::vector<int>> flag (params.Ny + 2 * params.numGC, std::vector<int>(params.Nx + 2 * params.numGC));
-	double ds = 1.5 * std::min(params.dx, params.dy);
+	double ds = 1.0 * std::min(params.dx, params.dy);
 	
 	int ghostrad = 3;
 
@@ -69,9 +70,9 @@ void GFM_VOF :: set_ghost_states
 
 	// This loop sets ghost states in mixed cells and stores MRP solution
 	
-	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	for (int i=params.numGC-ghostrad; i<params.Ny + params.numGC+ghostrad; i++)
 	{
-		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		for (int j=params.numGC-ghostrad; j<params.Nx + params.numGC+ghostrad; j++)
 		{
 			double z = vof.get_z(i, j);
 			
@@ -265,9 +266,7 @@ void GFM_VOF :: set_ghost_states
 		}
 	}
 
-	
-	
-	
+
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{
 		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
@@ -276,7 +275,18 @@ void GFM_VOF :: set_ghost_states
 			grid2[i][j] = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, prims2[i][j]);
 			assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
 			assert(misc::is_physical_state(eosparams.gamma2, eosparams.pinf2, grid2[i][j]));
-			
+		}
+	}
+	
+	
+	apply_BCs_euler(params, grid1);
+	apply_BCs_euler(params, grid2);
+	
+	
+	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+	{
+		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+		{
 			if (ls.get_z(i,j) >= 0.5)
 			{
 				newvelocities[i][j] << prims1[i][j](1), prims1[i][j](2);
@@ -290,4 +300,6 @@ void GFM_VOF :: set_ghost_states
 	
 	
 	vfield->store_velocity_field(newvelocities, t);
+	
+	
 }
