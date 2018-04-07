@@ -15,6 +15,7 @@ set xrange [0:325]
 set yrange [0:89]
 
 set palette rgbformulae 33,13,10
+set cblabel '$\phi$'
 
 set title 'First order upwind'
 plot "./data/OGFM-LS1-shocked_helium_bubble-MUSCL-325-89-3083-ls.dat" u 1:2:3 w image, "cont1.dat" w l lw 2 lc 0, "zerocont1.dat" w l lw 5 lc 0

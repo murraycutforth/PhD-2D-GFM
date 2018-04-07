@@ -1,8 +1,7 @@
 # Create plot of error convergence on CE test with existing GFMs
 
-set terminal epslatex color solid size 16cm,8cm
+set terminal epslatex color solid size 14cm,9cm
 set output "CEtest_GFM.tex"
-set multiplot layout 1,2
 set size square
 
 logb(x, base) = log(x)/log(base)
@@ -19,9 +18,5 @@ set yrange [-2.5:-0.5]
 set xtics 1
 set ytics 0.5
 set ylabel '$\log_{10}(L_1)$'
-plot -1.0*logb(2,10)*x+0.5 w l lw 6 lc rgb '#00008B' title '\footnotesize $\mathcal{O}(N_{\mathrm{cells}}^{-1})$', "./data/CEtesterror-OGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize OGFM', "./data/CEtesterror-riemannGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize RGFM', "./data/CEtesterror-MGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize MGFM'
-
-set ylabel '$\log_{10}(L_2)$'
-set yrange [-4.5:-1.8]
-plot -2.0*logb(2,10)*x+1 w l lw 6 lc rgb '#00008B' title '\footnotesize $\mathcal{O}(N_{\mathrm{cells}}^{-2})$', "./data/CEtesterror-OGFM.dat" u (logb($1, 2)):(log10($3)) w p pt 7 ps 2 title '\footnotesize OGFM', "./data/CEtesterror-riemannGFM.dat" u (logb($1, 2)):(log10($3)) w p pt 7 ps 2 title '\footnotesize RGFM', "./data/CEtesterror-MGFM.dat" u (logb($1, 2)):(log10($3)) w p pt 7 ps 2 title '\footnotesize MGFM'
+plot -1.0*logb(2,10)*x+0.5 w l lw 6 lc rgb '#00008B' title '\footnotesize $\mathcal{O}(N_{\mathrm{cells}}^{-1})$', "./data/CEtesterror-OGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize OGFM', "./data/CEtesterror-riemannGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize RGFM', "./data/CEtesterror-MGFM.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize MGFM'#, "./data/CEtesterror-singlemat.dat" u (logb($1, 2)):(log10($2)) w p pt 7 ps 2 title '\footnotesize MUSCL'
 

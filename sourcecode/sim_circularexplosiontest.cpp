@@ -116,6 +116,167 @@ void sim_circularexplosiontest :: run_sim (GFM_settingsfile SF)
 		
 		std::cout << "[CEtest_onefluid] Time step " << numsteps << " complete. t = " << t << std::endl;
 	}
+	
+	
+	
+	
+	
+	
+	// Now set up single material with various other resolutions
+	
+	std::ofstream outfilec;
+	outfilec.open("./output/CEtest2/CEtesterror-singlemat.dat");
+	
+	std::vector<int> res = {50, 100, 200, 400};
+	
+	for (int thisres : res)
+	{
+		SF.Nx = thisres;
+		SF.Ny = thisres;
+			
+		sim_info params;
+		binarySGparams eosparams;
+		
+		params.numGC = 5;
+		params.Nx = SF.Nx;
+		params.Ny = SF.Ny;
+		params.output_freq = 1e9;
+		eosparams.gamma1 = 1.4;
+		eosparams.gamma2 = 1.4;
+		eosparams.pinf1 = 0.0;
+		eosparams.pinf2 = 0.0;
+		params.x0 = 0.0;
+		params.y0 = 0.0;
+		params.BC_L = "transmissive";
+		params.BC_T = "transmissive";
+		params.BC_R = "transmissive";
+		params.BC_B = "transmissive";
+		params.dx = 2.0/params.Nx;
+		params.dy = 2.0/params.Ny;
+		params.T = 0.25;
+		
+		
+		grideuler2type gridc (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC, vec4type(4)));
+		grideuler2type future_gridc (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC, vec4type(4)));
+		BBrange realcellsc (params.numGC, params.Ny + params.numGC, params.numGC, params.Nx + params.numGC);
+		
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		Lprims(0) = 1.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.0;
+		
+		Rprims(0) = 0.125;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 0.1;
+		
+		int N = 10;
+		Eigen::Vector2d centre;
+		centre << 1.0, 1.0;
+		double R = 0.4;
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{				
+				int totalnumsamples = N*N;
+				int numinside = 0;
+				double delx = params.dx/N;
+				double dely = params.dy/N;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				Eigen::Vector2d samplepos;
+				
+				for (int a=0; a<N; a++)
+				{
+					for (int b=0; b<N; b++)
+					{
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						samplepos -= centre;
+						
+						if (samplepos.norm() <= R) numinside++;
+					}
+				}
+	
+				double frac = double(numinside)/totalnumsamples;
+				
+				vec4type W = frac * Lprims + (1.0 - frac) * Rprims;
+				
+				gridc[i][j] = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, W);
+			}
+		}
+		
+		apply_BCs_euler (params, gridc);
+		
+		std::cout << "Initialisation of coarse single fluid complete. Beginning time iterations with CFL = " << SF.CFL << "." << std::endl;
+		int numsteps = 0;
+		double t = 0.0;
+		double CFL, dt;
+	
+		while (t < params.T)
+		{
+			CFL = (numsteps < 5) ? std::min(SF.CFL, 0.2) : SF.CFL;
+			dt = compute_onefluid_dt(CFL, params, gridc, eosparams, params.T, t);
+	
+			FS->pure_fluid_update(params, eosparams.gamma1, eosparams.pinf1, dt, realcellsc, gridc, future_gridc);
+	
+			apply_BCs_euler (params, gridc);
+			
+			numsteps++;
+			t += dt;
+			
+			std::cout << "[CEtest_onefluid] Time step " << numsteps << " complete. t = " << t << std::endl;
+		}
+		
+		double l1, l2, linf;
+		
+		
+		griddoubletype gridrefdensities (params1.Ny + 2 * params1.numGC, std::vector<double>(params1.Nx + 2 * params1.numGC));
+
+		for (int i=0; i<params1.Ny + params1.numGC * 2; i++)
+		{
+			for (int j=0; j<params1.Nx + 2 * params1.numGC; j++)
+			{
+				gridrefdensities[i][j] = grid[i][j](0);
+			}
+		}
+	
+		double sumdiff = 0.0;
+		double sumsqdiff = 0.0;
+		double maxdiff = 0.0;
+	
+		for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+		{
+			for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i,j);
+				
+				double realdensity = gridc[i][j](0);
+	
+				double diff = realdensity - grid_bilinear_interpolate<double>(params1, gridrefdensities, CC);
+	
+				sumdiff += fabs(diff);
+				sumsqdiff += diff * diff;
+				maxdiff = std::max(maxdiff, fabs(diff));
+			}
+		}
+	
+		l1 = params.dx * params.dy * sumdiff;
+		l2 = params.dx * params.dy * sqrt(sumsqdiff);
+		linf = params.dx * params.dy * maxdiff;
+		
+		
+		outfilec << thisres << " " << l1 << " " << l2 << " " << linf << std::endl;
+	}
+	
 		
 	
 	
@@ -127,7 +288,7 @@ void sim_circularexplosiontest :: run_sim (GFM_settingsfile SF)
 			// Compute L1, L2, and Linf errors compared to reference solution
 	
 	std::vector<std::string> GFMs = {"OGFM", "MGFM", "realGFM", "riemannGFM", "VOFGFM"};
-	std::vector<int> res = {50, 100, 200, 400};
+	
 	
 	for (std::string thisGFM : GFMs)
 	{

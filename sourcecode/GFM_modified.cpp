@@ -99,6 +99,7 @@ void GFM_modified :: set_ghost_states
 				
 				Eigen::Vector2d u1_tang = u1 - u1_normal;
 				Eigen::Vector2d u2_tang = u2 - u2_normal;
+				
 
 								
 				// Solve mixed Riemann problem in frame tangential to interface
@@ -141,6 +142,13 @@ void GFM_modified :: set_ghost_states
 				
 				Eigen::Vector2d u1_star = u_star * normal + u1_tang;
 				Eigen::Vector2d u2_star = u_star * normal + u2_tang;
+				
+				
+				//~ // OR - apply no-slip interface BC
+				
+				//~ Eigen::Vector2d u_tang_avg = 0.5 * (u1_tang + u2_tang);
+				//~ Eigen::Vector2d u1_star = u_star * normal + u2_tang;
+				//~ Eigen::Vector2d u2_star = u_star * normal + u2_tang;
 				
 				
 				// Set the real fluid entropy here and ghost fluid state

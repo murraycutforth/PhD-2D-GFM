@@ -17,6 +17,8 @@ set yrange [0:12]
 
 set palette rgbformulae 33,13,10
 
+set cblabel '$\rho$'
+
 set xlabel '$t = 0.0125$'
 plot "./data/MGFM-CLSVOF-underwater_shocked_bubble-MUSCL-400-400-925-prims.dat" w image, "pcontR3.dat" w l lw 2 lc 0
 

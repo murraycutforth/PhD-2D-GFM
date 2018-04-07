@@ -13,6 +13,7 @@
 #include "GFM_riemann.hpp"
 #include "GFM_modified.hpp"
 #include "euler_bc.hpp"
+#include "velocity_field_ODE_solver.hpp"
 #include "euler_misc.hpp"
 #include "pure_RS_exact.hpp"
 #include "mixed_RS_exact.hpp"
@@ -53,6 +54,7 @@ void sim_twofluid :: run_sim (GFM_settingsfile SF)
 	
 	output(numsteps, t, params, eosparams, grid1, grid2, *ls, SF.basename, *(GFM->vfield));
 	output_mass_error(numsteps, t, params, grid1, grid2, *ls, SF.basename);
+	if (SF.test_case == "RMI_pert") output_perturbation_amplitude(numsteps, t, 0.0, *(GFM->vfield), params, grid1, grid2, *ls, SF.basename);
 
 	std::cout << "[" << SF.basename << "] Initialisation complete. Beginning time iterations with CFL = " << SF.CFL << "." << std::endl;
 
@@ -79,6 +81,7 @@ void sim_twofluid :: run_sim (GFM_settingsfile SF)
 			lastoutputtime = t;
 		}
 		output_mass_error(numsteps, t, params, grid1, grid2, *ls, SF.basename);
+		if (SF.test_case == "RMI_pert") output_perturbation_amplitude(numsteps, t, dt, *(GFM->vfield), params, grid1, grid2, *ls, SF.basename);
 		
 		std::cout << "[" << SF.basename << "] Time step " << numsteps << " complete. t = " << t << std::endl;
 	}
@@ -172,6 +175,8 @@ void sim_twofluid :: output
 	outfile3.open(filename + "-" + std::to_string(numsteps) + "-vfield.dat");
 	std::ofstream outfile4;
 	outfile4.open(filename + "-" + std::to_string(numsteps) + "-z.dat");
+	std::ofstream outfile5;
+	outfile5.open(filename + "-" + std::to_string(numsteps) + "-schlieren.dat");
 	
 	
 	for (int i=2; i<params.Ny + 2 * params.numGC - 2; i++)
@@ -216,7 +221,51 @@ void sim_twofluid :: output
 	outfile2.close();
 	outfile3.close();
 	outfile4.close();
+	
+	
+	std::vector<double> allgrads;
+	
+	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	{
+		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		{
+			double phi_L = ls.get_sdf(i,j-1);
+			double phi_R = ls.get_sdf(i,j+1);
+			double phi_T = ls.get_sdf(i+1,j);
+			double phi_B = ls.get_sdf(i-1,j);
+			
+			double rho_L = (phi_L <= 0.0) ? grid1[i][j-1](0) : grid2[i][j-1](0);
+			double rho_R = (phi_R <= 0.0) ? grid1[i][j+1](0) : grid2[i][j+1](0);
+			double rho_T = (phi_T <= 0.0) ? grid1[i+1][j](0) : grid2[i+1][j](0);
+			double rho_B = (phi_B <= 0.0) ? grid1[i-1][j](0) : grid2[i-1][j](0);
+			
+			double gradx = (rho_R - rho_L) / (2.0 * params.dx);
+			double grady = (rho_T - rho_B) / (2.0 * params.dy);
+
+			allgrads.push_back(sqrt(gradx*gradx + grady*grady));
+		}
+	}
+
+	double maxgrad = *std::max_element(allgrads.begin(), allgrads.end());
+			
+	int counter = 0;
+
+	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	{
+		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		{
+			Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+
+			outfile5 << CC(0) << " " << CC(1) << " " << allgrads[counter] / maxgrad << std::endl;
+			counter++;
+		}
+		outfile5 << std::endl;
+	}
+	
+	outfile5.close();
 }
+
+
 
 
 
@@ -312,6 +361,18 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
 	}
+	else if (SF.test_case == "shocked_R22_bubble")
+	{
+		eosparams.gamma1 = 1.249;
+
+		params.dx = 0.445 / params.Nx;
+		params.dy = 0.089 / params.Ny;
+		params.T = 0.0014;
+		params.BC_T = "reflective";
+		params.BC_B = "reflective";
+		
+		params.output_freq = 25;
+	}
 	else if (SF.test_case == "shocked_SF6")
 	{
 		eosparams.gamma2 = 1.076;
@@ -324,7 +385,7 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_B = "reflective";
 		params.output_freq = 8;
 	}
-	else if (SF.test_case == "RMI")
+	else if (SF.test_case == "RMI" || SF.test_case == "RMI_pert" || SF.test_case == "RMI_unpert")
 	{
 		eosparams.gamma2 = 1.093;
 
@@ -368,6 +429,15 @@ void sim_twofluid :: set_sim_parameters
 		params.dy = 50.0/params.Ny;
 		params.T = 0.08;
 		params.BC_L = "reflective";
+	}
+	else if (SF.test_case == "TSTM")
+	{
+		eosparams.gamma1 = 1.5;
+		
+		params.dx = 7.0/params.Nx;
+		params.dy = 3.0/params.Ny;
+		params.T = 8.0;
+		params.output_freq = 10;
 	}
 	else
 	{
@@ -668,6 +738,92 @@ void sim_twofluid :: set_sim_ICs
 				// Set he state
 				
 				grid1[i][j] = hestate;
+				
+				
+				// Set ls
+				
+				int N = 10;
+				int totalnumsamples = N*N;
+				int numinside = 0;
+				double delx = params.dx/N;
+				double dely = params.dy/N;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				Eigen::Vector2d samplepos;
+				
+				for (int a=0; a<N; a++)
+				{
+					for (int b=0; b<N; b++)
+					{
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						samplepos -= centre;
+						
+						if (samplepos.norm() <= R) numinside++;
+					}
+				}
+	
+				double frac = double(numinside)/totalnumsamples;
+				
+				double zval = frac;
+				
+				double lsval = (CC - centre).norm() - R;
+				ls.set_sdf(i, j, lsval);
+				ls.set_z(i, j, zval);
+			}
+		}
+	}
+	else if (SF.test_case == "shocked_R22_bubble")
+	{
+		// Fluid 1 is R22 
+		
+		vec4type r22prims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+		
+		r22prims(0) = 3.863;
+		r22prims(1) = 0.0;
+		r22prims(2) = 0.0;
+		r22prims(3) = 1.01325e5;
+		
+		Lprims(0) = 1.686;
+		Lprims(1) = -113.5;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.59e5;
+		
+		Rprims(0) = 1.225;
+		Rprims(1) = 0.0;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.01325e5;
+		
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
+		vec4type r22state = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, r22prims);
+		
+		Eigen::Vector2d centre;
+		centre << 0.225, 0.0445;
+		double R = 0.025;
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d CC = params.cellcentre_coord(i, j);
+				
+				
+				// Set air state
+				
+				if (CC(0) < 0.275) grid2[i][j] = Rstate;
+				else grid2[i][j] = Lstate;
+				
+				
+				// Set he state
+				
+				grid1[i][j] = r22state;
 				
 				
 				// Set ls
@@ -1108,8 +1264,212 @@ void sim_twofluid :: set_sim_ICs
 				ls.set_sdf(i, j, lsval);
 			}
 		}
+	}
+	else if (SF.test_case == "RMI_pert")
+	{
+		// Air is fluid 1
+		
+		vec4type sf6prims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+
+		sf6prims(0) = 5.04;
+		sf6prims(1) = 0.0;
+		sf6prims(2) = 0.0;
+		sf6prims(3) = 1.0;
+		
+		Lprims(0) = 1.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.0;
+		
+		Rprims(0) = 1.411;
+		Rprims(1) = -0.39;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.628;
+		
+		vec4type sf6state = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, sf6prims);
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims);
+
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);	
+				
+				if (cc(0) < 3.2)
+				{
+					grid1[i][j] = Lstate;
+				}
+				else
+				{
+					grid1[i][j] = Rstate;
+				}
+
+				grid2[i][j] = sf6state;
+				
+				
+				// Set z as fraction of area inside sinusoidal interface
+
+				double x1 = 2.9;
+				double eps = 0.02;
+				int numsamples = 10;
+				int totalnumsamples = numsamples*numsamples;
+				int numinside = 0;
+				double delx = params.dx/numsamples;
+				double pi = atan(1.0) * 4.0;
+				double dely = params.dy/numsamples;
+				
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						double interfacex = x1 - eps * sin(2.0 * pi * (samplepos(1) + 0.25));
+						
+						
+						if (interfacex > samplepos(0)) 
+						{
+							numinside++;
+						}
+					}
+				}
+
+				double zval = 1.0 - double(numinside)/totalnumsamples;
+
+				ls.set_z(i, j, zval);
 
 
+				// Set level set by iterating along sinusoidal interface
+
+				double mindist = 1e100;
+
+				for (double ypos = 0.0; ypos <=0.5; ypos += params.dy * 0.1)
+				{
+					double xpos = x1 - eps * sin(2.0 * M_PI * (ypos + 0.25));
+
+					Eigen::Vector2d interfacepos;
+					interfacepos << xpos, ypos;
+
+					mindist = std::min(mindist, (interfacepos - cc).norm());
+				}
+
+				double lsval = std::copysign(mindist, 0.5 - zval);
+
+				ls.set_sdf(i, j, lsval);
+			}
+		}
+	}
+	else if (SF.test_case == "RMI_unpert")
+	{
+		// Air is fluid 1
+		
+		vec4type sf6prims (4);
+		vec4type Lprims (4);
+		vec4type Rprims (4);
+
+		sf6prims(0) = 5.04;
+		sf6prims(1) = 0.0;
+		sf6prims(2) = 0.0;
+		sf6prims(3) = 1.0;
+		
+		Lprims(0) = 1.0;
+		Lprims(1) = 0.0;
+		Lprims(2) = 0.0;
+		Lprims(3) = 1.0;
+		
+		Rprims(0) = 1.411;
+		Rprims(1) = -0.39;
+		Rprims(2) = 0.0;
+		Rprims(3) = 1.628;
+		
+		vec4type sf6state = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, sf6prims);
+		vec4type Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
+		vec4type Rstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims);
+
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);	
+				
+				if (cc(0) < 3.2)
+				{
+					grid1[i][j] = Lstate;
+				}
+				else
+				{
+					grid1[i][j] = Rstate;
+				}
+
+				grid2[i][j] = sf6state;
+				
+				
+				// Set z as fraction of area inside sinusoidal interface
+
+				double x1 = 2.9;
+				double eps = 0.0;
+				int numsamples = 10;
+				int totalnumsamples = numsamples*numsamples;
+				int numinside = 0;
+				double delx = params.dx/numsamples;
+				double pi = atan(1.0) * 4.0;
+				double dely = params.dy/numsamples;
+				
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						double interfacex = x1 - eps * sin(2.0 * pi * (samplepos(1) + 0.25));
+						
+						
+						if (interfacex > samplepos(0)) 
+						{
+							numinside++;
+						}
+					}
+				}
+
+				double zval = 1.0 - double(numinside)/totalnumsamples;
+
+				ls.set_z(i, j, zval);
+
+
+				// Set level set by iterating along sinusoidal interface
+
+				double mindist = 1e100;
+
+				for (double ypos = 0.0; ypos <=0.5; ypos += params.dy * 0.1)
+				{
+					double xpos = x1 - eps * sin(2.0 * M_PI * (ypos + 0.25));
+
+					Eigen::Vector2d interfacepos;
+					interfacepos << xpos, ypos;
+
+					mindist = std::min(mindist, (interfacepos - cc).norm());
+				}
+
+				double lsval = std::copysign(mindist, 0.5 - zval);
+
+				ls.set_sdf(i, j, lsval);
+			}
+		}
 	}
 	else if (SF.test_case == "shocked_SF6")
 	{
@@ -1231,6 +1591,124 @@ void sim_twofluid :: set_sim_ICs
 			}
 		}
 	}
+	else if (SF.test_case == "TSTM")
+	{
+		vec4type prims2 (4);
+		vec4type Lprims1 (4);
+		vec4type Rprims1 (4);
+
+		prims2(0) = 1.0;
+		prims2(1) = 0.0;
+		prims2(2) = 0.0;
+		prims2(3) = 0.1;
+		
+		Lprims1(0) = 1.0;
+		Lprims1(1) = 0.0;
+		Lprims1(2) = 0.0;
+		Lprims1(3) = 1.0;
+		
+		Rprims1(0) = 0.125;
+		Rprims1(1) = 0.0;
+		Rprims1(2) = 0.0;
+		Rprims1(3) = 0.1;
+		
+		vec4type state2 = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, prims2);
+		vec4type Lstate1 = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims1);
+		vec4type Rstate1 = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Rprims1);
+		
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				grid2[i][j] = state2;
+				
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);	
+								
+				if (cc(0) < 1.0)
+				{
+					grid1[i][j] = Lstate1;
+				}
+				else
+				{
+					grid1[i][j] = Rstate1;
+				}
+				
+				
+				// Set z as fraction of area outside rectangular region [1, 7] x [0.0, 1.5]
+				
+				int numsamples = 10;
+				int totalnumsamples = numsamples*numsamples;
+				int numinside = 0;
+				double delx = params.dx/numsamples;
+				double dely = params.dy/numsamples;
+				
+				Eigen::Vector2d BL;
+				BL(0) = cc(0) - 0.5 * params.dx;
+				BL(1) = cc(1) - 0.5 * params.dy;
+				
+				for (int a=0; a<numsamples; a++)
+				{
+					for (int b=0; b<numsamples; b++)
+					{
+						Eigen::Vector2d samplepos;
+						samplepos(0) = BL(0) + (a + 0.5) * delx;
+						samplepos(1) = BL(1) + (b + 0.5) * dely;
+						
+						if (samplepos(0) >= 1.0 && samplepos(0) <= 8.0
+							&& samplepos(1) >= -1.0 && samplepos(1) <= 1.5) 
+						{
+							numinside++;
+						}
+					}
+				}
+
+				double z = 1.0 - double(numinside)/totalnumsamples;
+				ls.set_z(i, j, z);
+				
+				
+				// Set level set
+				
+				double y1 = 1.5 - cc(1);
+				double xL = cc(0) - 1.0;
+				double xR = 8.0 - cc(0);
+				Eigen::Vector2d TL;
+				TL << 1.0, 1.5;
+				Eigen::Vector2d TR;
+				TR << 8.0, 1.5;
+				
+				if (1.0 <= cc(0) && cc(0) <= 8.0 && cc(1) <= 1.5)
+				{
+					ls.set_sdf(i, j, std::min({y1, xL, xR}));
+				}
+				else if (cc(0) <= 1.0)
+				{
+					if (cc(1) <= 1.5)
+					{
+						ls.set_sdf(i, j, xL);
+					}
+					else
+					{
+						ls.set_sdf(i, j, -(cc - TL).norm());
+					}
+				}
+				else if (cc(0) >= 8.0)
+				{
+					if (cc(1) <= 1.5)
+					{
+						ls.set_sdf(i, j, xR);
+					}
+					else
+					{
+						ls.set_sdf(i, j, -(cc - TR).norm());
+					}
+				}
+				else
+				{
+					ls.set_sdf(i, j, y1);
+				}
+			}
+		}
+	}
 	else
 	{
 		assert(!"Invalid test_case choice.");
@@ -1268,4 +1746,63 @@ double sim_twofluid :: fluid_mass
 	return totalmass;
 }
 
+
+
+void sim_twofluid :: output_perturbation_amplitude
+(
+	int numsteps,
+	double t,
+	double dt,
+	const solved_velocity_field_base& vfield,
+	const sim_info& params,
+	const grideuler2type& grid1,
+	const grideuler2type& grid2,
+	const GFM_ITM_interface& ls,
+	std::string filename
+)
+{
+	static Eigen::Vector2d x0;
+	static Eigen::Vector2d x1;
+	
+	if (numsteps == 0)
+	{
+		std::ofstream outfile1;
+		outfile1.open(filename + "-pertamp.dat");
+		
+		std::ofstream outfile2;
+		outfile2.open(filename + "-pertampderiv.dat");
+		
+		x0 << 2.88, 1.0;
+		x1 << 2.92, 0.5;
+	}
+	else
+	{
+		std::ofstream outfile1;
+		outfile1.open(filename + "-pertamp.dat", std::ofstream::app);
+		
+		std::ofstream outfile2;
+		outfile2.open(filename + "-pertampderiv.dat", std::ofstream::app);
+		
+		
+		// Output current amplitude
+		
+		outfile1 << t << " " << 0.5 * (x1(0) - x0(0)) << " " << x1(0) << " " << x0(0) << std::endl;
+		
+		
+		// Output rate of change of amplitude
+		
+		outfile2 << t << " " << 0.5 * (vfield.get_velocity(x1, t)(0) - vfield.get_velocity(x0, t)(0)) << " " << vfield.get_velocity(x1, t)(0) << " " << vfield.get_velocity(x0, t)(0) << std::endl;
+		
+		
+		// Advect points in vfield
+		
+		time_step_RK4(vfield, t, dt, x0, x0);
+		time_step_RK4(vfield, t, dt, x1, x1);
+		
+		// Keep points in correct y-plane
+		
+		x0(1) = 1.0;
+		x1(1) = 0.5;
+	}	
+}
 

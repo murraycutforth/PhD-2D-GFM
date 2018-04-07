@@ -17,6 +17,8 @@ set yrange [-5:5]
 
 set palette rgbformulae 33,13,10
 
+set cblabel '$\rho$'
+
 set xlabel '$t = 0.001$'
 plot "./data/riemannGFM-LS9-underwater_explosion-MUSCL-400-400-260-prims.dat" w image, "pcontR1.dat" w l lw 2 lc 0
 

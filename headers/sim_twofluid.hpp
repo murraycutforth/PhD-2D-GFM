@@ -58,6 +58,19 @@ class sim_twofluid : public sim_base {
 		const velocity_field_base& vfield
 	);
 	
+	void output_perturbation_amplitude
+	(
+		int numsteps,
+		double t,
+		double dt,
+		const solved_velocity_field_base& vfield,
+		const sim_info& params,
+		const grideuler2type& grid1,
+		const grideuler2type& grid2,
+		const GFM_ITM_interface& ls,
+		std::string filename
+	);
+	
 	void output_mass_error
 	(
 		int numsteps,

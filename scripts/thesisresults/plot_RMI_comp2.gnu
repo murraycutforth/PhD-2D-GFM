@@ -16,13 +16,15 @@ set yrange [0.5:1]
 
 set palette rgbformulae 33,13,10
 
+set cblabel 'z'
+
 set title 'MGFM with CLSVOF'
-plot "./data/MGFM-CLSVOF-RMI-MUSCL-1600-400-6918-prims.dat" u 1:2:3 w image
+plot "./data/MGFM-CLSVOF-RMI-MUSCL-1600-400-6918-z.dat" u 1:2:3 w image
 
 set title 'VOF-GFM with PY'
-plot "./data/VOFGFM-PYVOF-RMI-MUSCL-1600-400-6891-prims.dat" u 1:2:3 w image
+plot "./data/VOFGFM-PYVOF-RMI-MUSCL-1600-400-6891-z.dat" u 1:2:3 w image
 
 set title 'VOF-GFM with EMOF'
-plot "./data/VOFGFM-EMOF2-RMI-MUSCL-1600-400-6925-prims.dat" u 1:2:3 w image
+plot "./data/VOFGFM-EMOF2-RMI-MUSCL-1600-400-6925-z.dat" u 1:2:3 w image
 
 

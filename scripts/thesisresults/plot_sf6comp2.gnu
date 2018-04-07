@@ -1,7 +1,7 @@
 # Create comparison plot between GFMs on shocked SF6
 
 set terminal epslatex color solid size 16cm,20cm
-set output "sf6_comp1.tex"
+set output "sf6_comp2.tex"
 set multiplot layout 3,1
 
 unset xtics
@@ -11,19 +11,21 @@ set border lw 3
 unset xlabel
 unset ylabel
 
-set xrange [0.06:0.22]
-set yrange [0.06:0.13]
+set xrange [0.0:0.45]
+set yrange [0.0:0.2]
 set cbrange [1:20]
 set logscale cb
 
 set palette rgbformulae 33,13,10
 
+set cblabel '$\rho$'
+
 set title 'MGFM with LS'
-plot "./data/MGFM-CLSVOF-shocked_SF6-MUSCL-900-400-884-prims.dat" u 1:2:3 w image
+plot "./data/MGFM-LS9-shocked_SF6-MUSCL-900-400-1890-prims.dat" u 1:2:3 w image
 
 set title 'VOF-GFM with PY'
-plot "./data/VOFGFM-PYVOF-shocked_SF6-MUSCL-900-400-880-prims.dat" u 1:2:3 w image 
+plot "./data/VOFGFM-PYVOF-shocked_SF6-MUSCL-900-400-1861-prims.dat" u 1:2:3 w image 
 
 set title 'VOF-GFM with EMOF'
-plot "./data/VOFGFM-EMOF2-shocked_SF6-MUSCL-900-400-878-prims.dat" u 1:2:3 w image
+plot "./data/VOFGFM-EMOF2-shocked_SF6-MUSCL-900-400-1864-prims.dat" u 1:2:3 w image
 
