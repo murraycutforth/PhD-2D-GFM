@@ -17,6 +17,9 @@ void GFM_original :: set_ghost_states
 	BBrange& realcells2
 )
 {
+	// Slip BC is not implemented for this GFM
+	assert(use_slip_BCs == false);
+	
 	static gridVector2dtype newvelocities (params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
 	static grideuler2type prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));

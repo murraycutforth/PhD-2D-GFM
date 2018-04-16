@@ -20,6 +20,8 @@ void GFM_modified :: set_ghost_states
 	static gridVector2dtype newvelocities (params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
 	static grideuler2type prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	static grideuler2type new_prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+	static grideuler2type new_prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	double ds = 1.0 * std::min(params.dx, params.dy);
 	
 	if (int(newvelocities.size()) != params.Ny + 2 * params.numGC)
@@ -27,6 +29,8 @@ void GFM_modified :: set_ghost_states
 		newvelocities = gridVector2dtype(params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
 		prims1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 		prims2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		new_prims1 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
+		new_prims2 = grideuler2type(params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	}
 	
 	
@@ -38,6 +42,8 @@ void GFM_modified :: set_ghost_states
 			newvelocities[i][j] = Eigen::Vector2d::Zero();
 			prims1[i][j] = misc::conserved_to_primitives(eosparams.gamma1, eosparams.pinf1, grid1[i][j]);
 			prims2[i][j] = misc::conserved_to_primitives(eosparams.gamma2, eosparams.pinf2, grid2[i][j]);
+			new_prims1[i][j] = prims1[i][j];
+			new_prims2[i][j] = prims2[i][j];
 			
 			if (lsval <= 0.0)
 			{
@@ -140,36 +146,48 @@ void GFM_modified :: set_ghost_states
 				
 				// Compute star-state velocities in Cartesian frame
 				
-				Eigen::Vector2d u1_star = u_star * normal + u1_tang;
-				Eigen::Vector2d u2_star = u_star * normal + u2_tang;
+				Eigen::Vector2d u1_star;
+				Eigen::Vector2d u2_star;
 				
-				
-				//~ // OR - apply no-slip interface BC
-				
-				//~ Eigen::Vector2d u_tang_avg = 0.5 * (u1_tang + u2_tang);
-				//~ Eigen::Vector2d u1_star = u_star * normal + u2_tang;
-				//~ Eigen::Vector2d u2_star = u_star * normal + u2_tang;
+				if (use_slip_BCs)
+				{
+					u1_star = u_star * normal + u1_tang;
+					u2_star = u_star * normal + u2_tang;
+				}
+				else
+				{
+					if (lsval <= 0.0)
+					{
+						u1_star = u_star * normal + u1_tang;
+						u2_star = u_star * normal + u1_tang;
+					}
+					else
+					{
+						u1_star = u_star * normal + u2_tang;
+						u2_star = u_star * normal + u2_tang;
+					}
+				}
 				
 				
 				// Set the real fluid entropy here and ghost fluid state
 				
 				if (lsval <= 0.0)
 				{
-					prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, rho_star_L, p_star, prims1[i][j](3));
+					new_prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, rho_star_L, p_star, prims1[i][j](3));
 					
-					prims2[i][j](0) = rho_star_R;
-					prims2[i][j](1) = u2_star(0);
-					prims2[i][j](2) = u2_star(1);
-					prims2[i][j](3) = p_star;
+					new_prims2[i][j](0) = rho_star_R;
+					new_prims2[i][j](1) = u2_star(0);
+					new_prims2[i][j](2) = u2_star(1);
+					new_prims2[i][j](3) = p_star;
 				}
 				else
 				{
-					prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, rho_star_R, p_star, prims2[i][j](3));
+					new_prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, rho_star_R, p_star, prims2[i][j](3));
 					
-					prims1[i][j](0) = rho_star_L;
-					prims1[i][j](1) = u1_star(0);
-					prims1[i][j](2) = u1_star(1);
-					prims1[i][j](3) = p_star;
+					new_prims1[i][j](0) = rho_star_L;
+					new_prims1[i][j](1) = u1_star(0);
+					new_prims1[i][j](2) = u1_star(1);
+					new_prims1[i][j](3) = p_star;
 				}
 				
 				
@@ -213,8 +231,8 @@ void GFM_modified :: set_ghost_states
 	{
 		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
 		{
-			grid1[i][j] = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, prims1[i][j]);
-			grid2[i][j] = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, prims2[i][j]);
+			grid1[i][j] = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, new_prims1[i][j]);
+			grid2[i][j] = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, new_prims2[i][j]);
 			assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
 			assert(misc::is_physical_state(eosparams.gamma2, eosparams.pinf2, grid2[i][j]));
 		}

@@ -1,9 +1,0 @@
-Nx 325
-Ny 89
-CFL 0.4
-sim_type twofluid
-FS MUSCL
-test_case shocked_helium_bubble
-outputpath /local/data2/public/mcc74/2D-GFM/he_test_3/
-ITM CLSVOF
-GFM realGFM

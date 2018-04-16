@@ -1,0 +1,9 @@
+Nx 2400
+Ny 600
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case RMI
+outputpath /local/data2/public/mcc74/2D-GFM/rmi/
+ITM CLSVOF
+GFM OGFM

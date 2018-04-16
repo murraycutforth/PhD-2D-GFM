@@ -12,6 +12,7 @@
 #include "GFM_VOF.hpp"
 #include "GFM_riemann.hpp"
 #include "GFM_modified.hpp"
+#include "OGFM_VOF.hpp"
 #include "euler_bc.hpp"
 #include "velocity_field_ODE_solver.hpp"
 #include "euler_misc.hpp"
@@ -360,6 +361,8 @@ void sim_twofluid :: set_sim_parameters
 		params.T = 280.0;
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
+		
+		params.output_freq = 20;
 	}
 	else if (SF.test_case == "shocked_R22_bubble")
 	{
@@ -371,7 +374,7 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
 		
-		params.output_freq = 25;
+		params.output_freq = 20;
 	}
 	else if (SF.test_case == "shocked_SF6")
 	{
@@ -379,11 +382,11 @@ void sim_twofluid :: set_sim_parameters
 
 		params.dx = 0.45 / params.Nx;
 		params.dy = 0.2 / params.Ny;
-		params.T = 0.25;
+		params.T = 0.2;
 		params.BC_T = "reflective";
 		params.BC_R = "reflective";
 		params.BC_B = "reflective";
-		params.output_freq = 8;
+		params.output_freq = 10;
 	}
 	else if (SF.test_case == "RMI" || SF.test_case == "RMI_pert" || SF.test_case == "RMI_unpert")
 	{
@@ -495,12 +498,17 @@ void sim_twofluid :: set_sim_methods
 	{
 		GFM = std::make_shared<GFM_VOF>(params);
 	}
+	else if (SF.GFM == "OGFMVOF")
+	{
+		GFM = std::make_shared<OGFM_VOF>(params);
+	}
 	else
 	{
 		assert(!"Invalid GFM choice");
 	}
 	
 	GFM->use_extension_vfield = false;
+	GFM->use_slip_BCs = false;
 	
 	
 	if (SF.ITM == "LS1")

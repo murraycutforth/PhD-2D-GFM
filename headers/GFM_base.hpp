@@ -18,6 +18,7 @@ class GFM_base {
 	public:
 	
 	bool use_extension_vfield;
+	bool use_slip_BCs;
 	
 	std::shared_ptr<solved_velocity_field_base> vfield;
 	
@@ -27,6 +28,7 @@ class GFM_base {
 	GFM_base (const sim_info& params)
 	:
 		use_extension_vfield (true),
+		use_slip_BCs (false),
 		vfield	(std::make_shared<solved_velocity_field_firstorder>(params)),
 		mixed_RS	(std::make_shared<mixed_RS_exact>())
 	{}

@@ -4,6 +4,6 @@ CFL 0.4
 sim_type twofluid
 FS MUSCL
 test_case shocked_R22_bubble
-outputpath /local/data2/public/mcc74/2D-GFM/shocked_R22_speed/
+outputpath /local/data2/public/mcc74/2D-GFM/shocked_R22/
 ITM CLSVOF
 GFM OGFM

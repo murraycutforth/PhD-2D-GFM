@@ -1,9 +1,0 @@
-Nx 325
-Ny 89
-CFL 0.4
-sim_type twofluid
-FS MUSCL
-test_case shocked_helium_bubble
-outputpath ./output/he_test_1/noreinit/
-ITM LS1
-GFM MGFM

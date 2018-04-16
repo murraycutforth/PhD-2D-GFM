@@ -1,0 +1,9 @@
+Nx 1800
+Ny 800
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case shocked_SF6
+outputpath /local/data2/public/mcc74/2D-GFM/shocked_sf6/
+ITM EMOF2
+GFM OGFMVOF

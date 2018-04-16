@@ -1,9 +1,0 @@
-Nx 200
-Ny 200
-CFL 0.4
-sim_type twofluid
-FS MUSCL
-test_case underwater_shocked_bubble
-outputpath /local/data2/public/mcc74/2D-GFM/underwater_shocked_bubble/
-ITM CLSVOF
-GFM riemannGFM

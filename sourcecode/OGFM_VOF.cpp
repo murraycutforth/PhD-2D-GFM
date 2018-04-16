@@ -1,11 +1,11 @@
-#include "GFM_VOF.hpp"
+#include "OGFM_VOF.hpp"
 #include "euler_misc.hpp"
-#include "mixed_RS_exact.hpp"
 #include "euler_bc.hpp"
 #include "GFM_VOF_interface.hpp"
 
 
-void GFM_VOF :: set_ghost_states
+
+void OGFM_VOF :: set_ghost_states
 (
 	const sim_info& params, 
 	const GFM_ITM_interface& ls,
@@ -17,7 +17,11 @@ void GFM_VOF :: set_ghost_states
 	BBrange& realcells2
 )
 {
+	// Slip BC is not implemented for this GFM
+	assert(use_slip_BCs == false);
+	
 	const GFM_VOF_interface& vof = dynamic_cast<const GFM_VOF_interface&>(ls);
+	
 	static gridVector2dtype newvelocities (params.Ny + 2 * params.numGC, std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>(params.Nx + 2 * params.numGC));
 	static grideuler2type prims1 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
 	static grideuler2type prims2 (params.Ny + 2 * params.numGC, roweuler2type(params.Nx + 2 * params.numGC));
@@ -68,7 +72,7 @@ void GFM_VOF :: set_ghost_states
 	}
 
 
-	// This loop sets ghost states in mixed cells and stores MRP solution
+	// This loop set flag values and stores real densities/pressures on interface
 	
 	for (int i=params.numGC-ghostrad; i<params.Ny + params.numGC+ghostrad; i++)
 	{
@@ -107,117 +111,45 @@ void GFM_VOF :: set_ghost_states
 				vec4type interfaceprims2;
 							
 				get_interpolated_mixedRPstates_VOF(params, prims1, prims2, normal, interfacelocation, ds, interfaceprims2, interfaceprims1);
+				
+				MRPsoln1[i][j] = interfaceprims1;
+				MRPsoln2[i][j] = interfaceprims2;
+			}
+		}
+	}
 								
-				
-				// Fluid velocities in Cartesian frame
-				
-				Eigen::Vector2d u1, u2;
-				u1 << interfaceprims1(1), interfaceprims1(2);
-				u2 << interfaceprims2(1), interfaceprims2(2);
-				
-
-				// Fluid velocities normal to interface
-				
-				Eigen::Vector2d u1_normal = u1.dot(normal) * normal;
-				Eigen::Vector2d u2_normal = u2.dot(normal) * normal;
-				
 	
-				// Fluid velocities parallel to interface
-				
-				Eigen::Vector2d u1_tang = u1 - u1_normal;
-				Eigen::Vector2d u2_tang = u2 - u2_normal;
-				
+	// Set ghost fluid state in mixed cells
 
-								
-				// Solve mixed Riemann problem in frame tangential to interface
-				
-				double p_star, u_star, rho_star_L, rho_star_R;
-				vec4type Lstate;
-				vec4type Rstate;
-				vec4type Lprims;
-				vec4type Rprims;
-				
-				Lprims(0) = interfaceprims1(0);
-				Lprims(1) = u1.dot(normal);
-				Lprims(2) = 0.0;
-				Lprims(3) = std::max(1e-6, interfaceprims1(3));
-				
-				Rprims(0) = interfaceprims2(0);
-				Rprims(1) = u2.dot(normal);
-				Rprims(2) = 0.0;
-				Rprims(3) = std::max(1e-6, interfaceprims2(3));
-				
-				Lstate = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, Lprims);
-				Rstate = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, Rprims);
-				
-				mixed_RS->solve_mixed_RP(eosparams.gamma1, eosparams.pinf1, eosparams.gamma2, eosparams.pinf2, Lstate, Rstate, p_star, u_star, rho_star_L, rho_star_R);
-				
-				
-				// Compute star-state velocities in Cartesian frame	
-				
-				Eigen::Vector2d u1_star;
-				Eigen::Vector2d u2_star;
-				
-				if (use_slip_BCs)
-				{
-					u1_star = u_star * normal + u1_tang;
-					u2_star = u_star * normal + u2_tang;
-				}
-				else
-				{
-					if (z > 0.5)
-					{
-						u1_star = u_star * normal + u1_tang;
-						u2_star = u_star * normal + u1_tang;
-					}
-					else
-					{
-						u1_star = u_star * normal + u2_tang;
-						u2_star = u_star * normal + u2_tang;
-					}
-				}
-				
-
-				// Store RP solution in this mixed cell
-
-				MRPsoln1[i][j](0) = rho_star_L;
-				MRPsoln1[i][j](1) = u1_star(0);
-				MRPsoln1[i][j](2) = u1_star(1);
-				MRPsoln1[i][j](3) = p_star;
-
-				MRPsoln2[i][j](0) = rho_star_R;
-				MRPsoln2[i][j](1) = u2_star(0);
-				MRPsoln2[i][j](2) = u2_star(1);
-				MRPsoln2[i][j](3) = p_star;
-
-
-				// Set real/ghost states in this mixed cell
-
+	for (int i=params.numGC-ghostrad; i<params.Ny + params.numGC+ghostrad; i++)
+	{
+		for (int j=params.numGC-ghostrad; j<params.Nx + params.numGC+ghostrad; j++)
+		{
+			double z = vof.get_z(i, j);
+			
+			if (0.0 < z && z < 1.0)
+			{				
 				if (z > 0.5)
 				{
-					prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, rho_star_L, p_star, prims1[i][j](3));
-					
-					prims2[i][j](0) = rho_star_R;
-					prims2[i][j](1) = u2_star(0);
-					prims2[i][j](2) = u2_star(1);
-					prims2[i][j](3) = p_star;
+					prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, MRPsoln2[i][j](0), MRPsoln2[i][j](3), prims1[i][j](3));
+					prims2[i][j](1) = prims1[i][j](1);
+					prims2[i][j](2) = prims1[i][j](2);
+					prims2[i][j](3) = prims1[i][j](3);
 				}
 				else
 				{
-					prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, rho_star_R, p_star, prims2[i][j](3));
-					
-					prims1[i][j](0) = rho_star_L;
-					prims1[i][j](1) = u1_star(0);
-					prims1[i][j](2) = u1_star(1);
-					prims1[i][j](3) = p_star;
+					prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, MRPsoln1[i][j](0), MRPsoln1[i][j](3), prims2[i][j](3));
+					prims1[i][j](1) = prims2[i][j](1);
+					prims1[i][j](2) = prims2[i][j](2);
+					prims1[i][j](3) = prims2[i][j](3);
 				}
 			}
 		}
 	}
 	
-
-	// This loop set ghost states around interface
 	
+	// Set ghost fluid state in non-mixed cells around interface			
+				
 	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
 	{
 		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
@@ -252,7 +184,12 @@ void GFM_VOF :: set_ghost_states
 				}
 
 				sumprims /= suminvdist;
-				prims1[i][j] = sumprims;
+				
+				
+				prims1[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma1, eosparams.pinf1, sumprims(0), sumprims(3), prims2[i][j](3));
+				prims1[i][j](1) = prims2[i][j](1);
+				prims1[i][j](2) = prims2[i][j](2);
+				prims1[i][j](3) = prims2[i][j](3);
 			}
 			else if (flag[i][j] == 2)
 			{
@@ -281,12 +218,18 @@ void GFM_VOF :: set_ghost_states
 				}
 
 				sumprims /= suminvdist;
-				prims2[i][j] = sumprims;
+				
+				prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, sumprims(0), sumprims(3), prims1[i][j](3));
+				prims2[i][j](1) = prims1[i][j](1);
+				prims2[i][j](2) = prims1[i][j](2);
+				prims2[i][j](3) = prims1[i][j](3);
 			}
 		}
 	}
-
-
+	
+	
+				
+	
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{
 		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
@@ -320,6 +263,4 @@ void GFM_VOF :: set_ghost_states
 	
 	
 	vfield->store_velocity_field(newvelocities, t);
-	
-	
 }
