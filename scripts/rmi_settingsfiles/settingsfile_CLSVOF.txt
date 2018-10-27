@@ -1,5 +1,5 @@
-Nx 2400
-Ny 600
+Nx 800
+Ny 200
 CFL 0.4
 sim_type twofluid
 FS MUSCL

@@ -1,12 +1,13 @@
 # Create comparison plot of He bubble mass between different ITMs
 
-set terminal epslatex color solid size 16cm,8cm
+set terminal epslatex color solid size 18cm,18cm
 set output "He_test_1_masserror.tex"
 
 set xlabel 'Time'
 set ylabel 'Relative error in bubble mass'
 
 set border lw 3
+set size square
 set key spacing 1.15
 set xtics nomirror
 set key bottom left

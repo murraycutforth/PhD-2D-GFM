@@ -95,6 +95,11 @@ void sim_twofluid :: run_sim (GFM_settingsfile SF)
 
 	std::cout << "[" << SF.basename << "] Simulation complete." << std::endl;
 	std::cout << "[" << SF.basename << "] Simulation took " << tend - tstart << "s." << std::endl;
+	
+	std::ofstream outfile;
+	outfile.open(SF.basename + "-runtime.dat");
+	outfile << tend - tstart << std::endl;
+	outfile.close();
 }
 
 
@@ -178,6 +183,8 @@ void sim_twofluid :: output
 	outfile4.open(filename + "-" + std::to_string(numsteps) + "-z.dat");
 	std::ofstream outfile5;
 	outfile5.open(filename + "-" + std::to_string(numsteps) + "-schlieren.dat");
+	std::ofstream outfile6;
+	outfile6.open(filename + "-GDAerr.dat");
 	
 	
 	for (int i=2; i<params.Ny + 2 * params.numGC - 2; i++)
@@ -264,6 +271,27 @@ void sim_twofluid :: output
 	}
 	
 	outfile5.close();
+	
+	
+	double L1err = 0.0;
+	
+	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
+	{
+		for (int j=params.numGC; j<params.Nx + params.numGC; j++)
+		{
+			Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+			Eigen::Vector2d mu;
+			mu << 0.5, 0.5;
+			
+			double rho = grid1[i][j](0);
+			double rho_exact = 1.0 + 1000.0 * exp(- ((cc - mu).squaredNorm()) / (2.0 * 0.1 * 0.1));
+			
+			L1err += fabs(rho - rho_exact) * params.dx * params.dy;
+		}
+	}
+	
+	outfile6 << params.Nx << " " << L1err << std::endl;
+	outfile6.close();
 }
 
 
@@ -352,6 +380,17 @@ void sim_twofluid :: set_sim_parameters
 		params.dy = 4.0 / params.Ny;
 		params.T = 0.0009;
 	}
+	else if (SF.test_case == "GDA")
+	{
+		
+		params.BC_L = "periodic";
+		params.BC_T = "periodic";
+		params.BC_R = "periodic";
+		params.BC_B = "periodic";
+		params.T = 10.0;
+		
+		params.output_freq = 0;
+	}
 	else if (SF.test_case == "shocked_helium_bubble")
 	{
 		eosparams.gamma1 = 1.667;
@@ -362,7 +401,7 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
 		
-		params.output_freq = 20;
+		params.output_freq = 2;
 	}
 	else if (SF.test_case == "shocked_R22_bubble")
 	{
@@ -398,6 +437,8 @@ void sim_twofluid :: set_sim_parameters
 		params.BC_T = "reflective";
 		params.BC_B = "reflective";
 		params.output_freq = 10;
+		
+		if (SF.test_case == "RMI_pert") params.T = 4.0;
 	}
 	else if (SF.test_case == "underwater_shocked_bubble")
 	{
@@ -698,6 +739,37 @@ void sim_twofluid :: set_sim_ICs
 				grid2[i][j] = Rstate;
 			}
 		}
+	}
+	else if (SF.test_case == "GDA")
+	{
+		for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+		{
+			for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+			{
+				Eigen::Vector2d cc = params.cellcentre_coord(i, j);
+				
+				Eigen::Vector2d mu;
+				mu << 0.5, 0.5;
+				
+				double sigma = 0.1;
+				
+				vec4type prims;
+				
+				prims(0) = 1.0 + 1000.0 * exp(- ((cc - mu).squaredNorm()) / (2.0 * sigma * sigma));
+				prims(1) = 1.0;
+				prims(2) = 1.0;
+				prims(3) = 0.0001;
+				
+				vec4type state = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, prims);
+				
+				grid1[i][j] = state;
+				grid2[i][j] = state;
+				
+				ls.set_sdf(i, j, -1.0);
+				ls.set_z(i, j, 1.0);
+			}
+		}
+			
 	}
 	else if (SF.test_case == "shocked_helium_bubble")
 	{

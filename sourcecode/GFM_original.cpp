@@ -44,6 +44,16 @@ void GFM_original :: set_ghost_states
 		}
 	}
 	
+	realcells1.imin = params.numGC + params.Ny;
+	realcells1.imax = params.numGC;
+	realcells1.jmin = params.numGC + params.Nx;
+	realcells1.jmax = params.numGC;
+	
+	realcells2.imin = params.numGC + params.Ny;
+	realcells2.imax = params.numGC;
+	realcells2.jmin = params.numGC + params.Nx;
+	realcells2.jmax = params.numGC;
+	
 	extrapolate_vector(params, ls, 6, prims1, prims2);
 	
 	for (int i=params.numGC; i<params.Ny + params.numGC; i++)
@@ -72,6 +82,11 @@ void GFM_original :: set_ghost_states
 				prims2[i][j](1) = u_new;
 				prims2[i][j](2) = v_new;
 				prims2[i][j](3) = p_new;
+				
+				realcells1.imin = std::min(realcells1.imin, i-2);
+				realcells1.imax = std::max(realcells1.imax, i+2);
+				realcells1.jmin = std::min(realcells1.jmin, j-2);
+				realcells1.jmax = std::max(realcells1.jmax, j+2);
 			}
 			else
 			{
@@ -93,9 +108,24 @@ void GFM_original :: set_ghost_states
 				prims1[i][j](1) = u_new;
 				prims1[i][j](2) = v_new;
 				prims1[i][j](3) = p_new;
+				
+				realcells2.imin = std::min(realcells2.imin, i-2);
+				realcells2.imax = std::max(realcells2.imax, i+2);
+				realcells2.jmin = std::min(realcells2.jmin, j-2);
+				realcells2.jmax = std::max(realcells2.jmax, j+2);
 			}
 		}
 	}
+	
+	realcells1.imin = std::max(realcells1.imin, params.numGC);
+	realcells1.imax = std::min(realcells1.imax, params.numGC + params.Ny);
+	realcells1.jmin = std::max(realcells1.jmin, params.numGC);
+	realcells1.jmax = std::min(realcells1.jmax, params.numGC + params.Nx);
+	
+	realcells2.imin = std::max(realcells2.imin, params.numGC);
+	realcells2.imax = std::min(realcells2.imax, params.numGC + params.Ny);
+	realcells2.jmin = std::max(realcells2.jmin, params.numGC);
+	realcells2.jmax = std::min(realcells2.jmax, params.numGC + params.Nx);
 	
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{

@@ -1,8 +1,8 @@
-Nx 80
-Ny 80
+Nx 160
+Ny 160
 CFL 0.4
 sim_type twofluid
-FS MUSCL
+FS Godunov
 test_case GDA
 outputpath /local/data2/public/mcc74/2D-GFM/validation/
 ITM LS5

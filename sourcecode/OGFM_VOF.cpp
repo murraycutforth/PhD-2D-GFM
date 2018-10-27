@@ -42,14 +42,15 @@ void OGFM_VOF :: set_ghost_states
 		flag = std::vector<std::vector<int>>(params.Ny + 2 * params.numGC, std::vector<int>(params.Nx + 2 * params.numGC));
 	}
 	
+	realcells1.imin = params.numGC + params.Ny;
+	realcells1.imax = params.numGC;
+	realcells1.jmin = params.numGC + params.Nx;
+	realcells1.jmax = params.numGC;
 	
-	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
-	{
-		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
-		{
-			flag[i][j] = -1;
-		}
-	}
+	realcells2.imin = params.numGC + params.Ny;
+	realcells2.imax = params.numGC;
+	realcells2.jmin = params.numGC + params.Nx;
+	realcells2.jmax = params.numGC;
 
 	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
 	{
@@ -63,13 +64,43 @@ void OGFM_VOF :: set_ghost_states
 			if (z >= 0.5)
 			{
 				assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
+				
+				realcells1.imin = std::min(realcells1.imin, i-2);
+				realcells1.imax = std::max(realcells1.imax, i+2);
+				realcells1.jmin = std::min(realcells1.jmin, j-2);
+				realcells1.jmax = std::max(realcells1.jmax, j+2);
 			}
 			else
 			{
 				assert(misc::is_physical_state(eosparams.gamma2, eosparams.pinf2, grid2[i][j]));
+				
+				realcells2.imin = std::min(realcells2.imin, i-2);
+				realcells2.imax = std::max(realcells2.imax, i+2);
+				realcells2.jmin = std::min(realcells2.jmin, j-2);
+				realcells2.jmax = std::max(realcells2.jmax, j+2);
 			}
 		}
 	}
+	
+	realcells1.imin = std::max(realcells1.imin, params.numGC);
+	realcells1.imax = std::min(realcells1.imax, params.numGC + params.Ny);
+	realcells1.jmin = std::max(realcells1.jmin, params.numGC);
+	realcells1.jmax = std::min(realcells1.jmax, params.numGC + params.Nx);
+	
+	realcells2.imin = std::max(realcells2.imin, params.numGC);
+	realcells2.imax = std::min(realcells2.imax, params.numGC + params.Ny);
+	realcells2.jmin = std::max(realcells2.jmin, params.numGC);
+	realcells2.jmax = std::min(realcells2.jmax, params.numGC + params.Nx);
+	
+	
+	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
+	{
+		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
+		{
+			flag[i][j] = -1;
+		}
+	}
+	
 
 
 	// This loop set flag values and stores real densities/pressures on interface
@@ -82,6 +113,8 @@ void OGFM_VOF :: set_ghost_states
 			
 			if (0.0 < z && z < 1.0)
 			{
+				// Set flag in cells within ghostrad of this mixed cell
+				
 				for (int xinc=-ghostrad; xinc<=ghostrad; xinc++)
 				{
 					for (int yinc=-ghostrad; yinc<=ghostrad; yinc++)
@@ -100,10 +133,10 @@ void OGFM_VOF :: set_ghost_states
 						}
 					}
 				}
-			}
+				
+				
+				// Save interpolated states for later use in extrapolating entropy
 
-			if (0.0 < z && z < 1.0)
-			{
 				Eigen::Vector2d normal = vof.get_mixedcell_normal(i,j);
 				Eigen::Vector2d interfacelocation = vof.get_interfacelocation(i,j);
 
@@ -114,21 +147,10 @@ void OGFM_VOF :: set_ghost_states
 				
 				MRPsoln1[i][j] = interfaceprims1;
 				MRPsoln2[i][j] = interfaceprims2;
-			}
-		}
-	}
-								
-	
-	// Set ghost fluid state in mixed cells
-
-	for (int i=params.numGC-ghostrad; i<params.Ny + params.numGC+ghostrad; i++)
-	{
-		for (int j=params.numGC-ghostrad; j<params.Nx + params.numGC+ghostrad; j++)
-		{
-			double z = vof.get_z(i, j);
-			
-			if (0.0 < z && z < 1.0)
-			{				
+				
+				
+				// Set ghost fluid state in this mixed cell
+				
 				if (z > 0.5)
 				{
 					prims2[i][j](0) = eos::isentropic_extrapolation(eosparams.gamma2, eosparams.pinf2, MRPsoln2[i][j](0), MRPsoln2[i][j](3), prims1[i][j](3));
@@ -144,8 +166,21 @@ void OGFM_VOF :: set_ghost_states
 					prims1[i][j](3) = prims2[i][j](3);
 				}
 			}
+			
+			
+			// Store real fluid velocity
+			
+			if (z >= 0.5)
+			{
+				newvelocities[i][j] << prims1[i][j](1), prims1[i][j](2);
+			}
+			else
+			{
+				newvelocities[i][j] << prims2[i][j](1), prims2[i][j](2);
+			}
 		}
 	}
+							
 	
 	
 	// Set ghost fluid state in non-mixed cells around interface			
@@ -224,16 +259,7 @@ void OGFM_VOF :: set_ghost_states
 				prims2[i][j](2) = prims1[i][j](2);
 				prims2[i][j](3) = prims1[i][j](3);
 			}
-		}
-	}
-	
-	
-				
-	
-	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
-	{
-		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
-		{
+			
 			grid1[i][j] = misc::primitives_to_conserved(eosparams.gamma1, eosparams.pinf1, prims1[i][j]);
 			grid2[i][j] = misc::primitives_to_conserved(eosparams.gamma2, eosparams.pinf2, prims2[i][j]);
 			assert(misc::is_physical_state(eosparams.gamma1, eosparams.pinf1, grid1[i][j]));
@@ -244,23 +270,5 @@ void OGFM_VOF :: set_ghost_states
 	
 	apply_BCs_euler(params, grid1);
 	apply_BCs_euler(params, grid2);
-	
-	
-	for (int i=0; i<params.Ny + 2 * params.numGC; i++)
-	{
-		for (int j=0; j<params.Nx + 2 * params.numGC; j++)
-		{
-			if (ls.get_z(i,j) >= 0.5)
-			{
-				newvelocities[i][j] << prims1[i][j](1), prims1[i][j](2);
-			}
-			else
-			{
-				newvelocities[i][j] << prims2[i][j](1), prims2[i][j](2);
-			}
-		}
-	}
-	
-	
 	vfield->store_velocity_field(newvelocities, t);
 }

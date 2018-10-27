@@ -1,0 +1,9 @@
+Nx 210
+Ny 90
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case TSTM
+outputpath /local/data2/public/mcc74/2D-GFM/tstm/
+ITM LS5
+GFM OGFM

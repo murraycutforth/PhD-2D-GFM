@@ -1,0 +1,9 @@
+Nx 650
+Ny 178
+CFL 0.4
+sim_type twofluid
+FS MUSCL
+test_case shocked_helium_bubble
+outputpath /local/data2/public/mcc74/2D-GFM/shocked_he/
+ITM LS5
+GFM OGFM
